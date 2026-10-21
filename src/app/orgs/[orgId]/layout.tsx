@@ -1,0 +1,81 @@
+import Link from "next/link";
+import { requireMembership, can } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { Nav } from "@/components/Nav";
+import { ROLE_LABEL } from "@/lib/roles";
+import { usageWarnings, type Usage } from "@/lib/usage";
+
+export default async function OrgLayout({ children, params }: { children: React.ReactNode; params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params;
+  const m = await requireMembership(orgId);
+  const supabase = await createClient();
+  const { data: usage } = await supabase.rpc("org_usage", { org: orgId });
+  const warnings = usage ? usageWarnings(usage as Usage) : [];
+  const base = `/orgs/${orgId}`;
+  const editor = can(m, "editor");
+  const admin = can(m, "admin");
+
+  return (
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand">つながり台帳</div>
+        <div className="small" style={{ margin: "0 10px 8px" }}>
+          <strong>{m.organizationName}</strong>
+          <div className="muted">{ROLE_LABEL[m.role]}・<Link href="/orgs">団体を切り替え</Link></div>
+        </div>
+        <Nav
+          sections={[
+            { items: [{ href: base, label: "ダッシュボード", exact: true }] },
+            {
+              title: "人物",
+              items: [
+                { href: `${base}/people`, label: "人物一覧", exact: true },
+                ...(editor ? [{ href: `${base}/people/duplicates`, label: "重複候補" }] : []),
+                { href: `${base}/tags`, label: "タグ" },
+              ],
+            },
+            {
+              title: "応募フォーム",
+              items: editor
+                ? [
+                    { href: `${base}/forms`, label: "取り込み・連携" },
+                    { href: `${base}/review`, label: "確認待ちの回答" },
+                  ]
+                : [],
+            },
+            {
+              title: "イベント",
+              items: [
+                { href: `${base}/events`, label: "イベント・参加履歴" },
+                { href: `${base}/photos`, label: "写真と人数推定" },
+              ],
+            },
+            {
+              title: "運用",
+              items: [
+                { href: `${base}/jobs`, label: "処理状況" },
+                ...(admin ? [{ href: `${base}/members`, label: "スタッフと権限" }, { href: `${base}/audit`, label: "操作履歴" }] : []),
+                { href: `${base}/settings`, label: "団体設定・利用量" },
+              ],
+            },
+          ]}
+        />
+        <form action="/auth/signout" method="post" style={{ margin: "16px 10px" }}>
+          <button className="btn-secondary btn-small">ログアウト</button>
+        </form>
+      </aside>
+      <main className="main">
+        {m.status === "suspended" && (
+          <div className="notice notice-warn">この団体は利用停止中です。データの閲覧と出力のみ行えます。</div>
+        )}
+        {warnings.map((w) => (
+          <div key={w.key} className={`notice ${w.ratio >= 1 ? "notice-danger" : "notice-warn"}`}>
+            {w.label}が{w.ratio >= 1 ? "上限に達しました。新しい処理は停止しています（既存データの閲覧・出力は可能）。" : `上限の${Math.floor(w.ratio * 100)}%に達しています。`}
+            追加利用はプラン変更のお申し込みで対応します（無断で追加請求することはありません）。
+          </div>
+        ))}
+        {children}
+      </main>
+    </div>
+  );
+}

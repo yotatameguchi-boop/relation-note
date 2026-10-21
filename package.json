@@ -1,0 +1,33 @@
+{
+  "name": "npo-crm",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3080",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "db:reset": "supabase db reset",
+    "worker": "supabase functions serve --env-file supabase/functions/.env --no-verify-jwt"
+  },
+  "dependencies": {
+    "next": "16.4.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "@supabase/supabase-js": "^2.75.0",
+    "@supabase/ssr": "^0.7.0",
+    "papaparse": "^5.5.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.2",
+    "typescript": "^5",
+    "vitest": "^3.2.4",
+    "@types/papaparse": "^5.3.16"
+  }
+}
