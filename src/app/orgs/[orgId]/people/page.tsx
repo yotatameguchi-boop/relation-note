@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fmtDate } from "@/lib/format";
 import { Flash, Pager, TagChip } from "@/components/ui";
 import { bulkAction, requestExport } from "./actions";
+import { SortSelect } from "@/components/SortSelect";
 
 type Row = {
   id: string; full_name: string; full_name_kana: string | null; region: string | null; attendance_count: number;
@@ -18,6 +19,18 @@ const SORTS = [
   { v: "name", l: "名前順" },
 ];
 const PAGE_SIZE = 50;
+
+function SortHeader({ label, by, note, className, sort, href }: { label: string; by: string; note: string; className?: string; sort: string; href: string }) {
+  const active = sort === by;
+  return (
+    <th className={className} aria-sort={active ? (by === "name" ? "ascending" : "descending") : "none"}>
+      <Link href={href} className={active ? "sort-link active" : "sort-link"}
+        title={active ? "並べ替えを解除（登録が新しい順）" : `${label}で並べ替え（${note}）`}>
+        {label}<span aria-hidden="true">{active ? (by === "name" ? " ▲" : " ▼") : " ⇅"}</span>
+      </Link>
+    </th>
+  );
+}
 
 export default async function PeoplePage({ params, searchParams }: {
   params: Promise<{ orgId: string }>;
@@ -41,17 +54,19 @@ export default async function PeoplePage({ params, searchParams }: {
   const list = (rows ?? []) as Row[];
   const total = list[0]?.total_count ?? 0;
 
-  const qs = (p: number) => {
+  const qs = (p: number, sortBy = sort) => {
     const u = new URLSearchParams();
     if (sp.q) u.set("q", sp.q);
     tagFilter.forEach((t) => u.append("tag", t));
     if (sp.region) u.set("region", sp.region);
-    if (sort !== "recent") u.set("sort", sort);
+    if (sortBy !== "recent") u.set("sort", sortBy);
     if (p > 1) u.set("page", String(p));
     const s = u.toString();
     return s ? `?${s}` : "";
   };
   const editor = can(m, "editor");
+  // 見出しをクリックすると、その列で並べ替えた画面へ移動する（1ページ目から。もう一度押すと解除）
+  const sortHref = (by: string) => `/orgs/${orgId}/people${qs(1, sort === by ? "recent" : by)}`;
   const sharing = (await getFeatures(orgId)).partner_sharing && canManageSharing(m);
 
   return (
@@ -83,9 +98,7 @@ export default async function PeoplePage({ params, searchParams }: {
           </div>
           <div className="inline-field">
             <label htmlFor="sort">並べ替え</label>
-            <select id="sort" name="sort" defaultValue={sort}>
-              {SORTS.map((s) => <option key={s.v} value={s.v}>{s.l}</option>)}
-            </select>
+            <SortSelect options={SORTS} value={sort} />
           </div>
           <button>検索</button>
         </div>
@@ -129,7 +142,10 @@ export default async function PeoplePage({ params, searchParams }: {
             <thead>
               <tr>
                 {editor && <th style={{ width: 30 }} />}
-                <th>氏名</th><th>連絡先</th><th>地域</th><th>タグ</th><th className="num">参加回数</th><th>最終参加日</th>
+                <SortHeader label="氏名" by="name" note="名前順" sort={sort} href={sortHref("name")} />
+                <th>連絡先</th><th>地域</th><th>タグ</th>
+                <SortHeader label="参加回数" by="attendance_count" note="多い順" className="num" sort={sort} href={sortHref("attendance_count")} />
+                <SortHeader label="最終参加日" by="last_attended" note="新しい順" sort={sort} href={sortHref("last_attended")} />
               </tr>
             </thead>
             <tbody>
