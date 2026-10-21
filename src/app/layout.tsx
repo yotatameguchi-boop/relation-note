@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "RelationNote（リレーションノート）", template: "%s | RelationNote" },
-  description: "NPO向け 顧客・関係人口管理",
+  description: "顧客・関係者のつながりをまとめて管理",
   applicationName: "RelationNote",
 };
 

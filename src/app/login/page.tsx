@@ -8,7 +8,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <div className="auth-wrap">
       <div className="auth-hero">
         <h1 style={{ margin: 0 }}><Logo size={44} wordSize={26} /></h1>
-        <p className="muted" style={{ marginTop: 8 }}>NPO向け 顧客・関係人口管理</p>
+        <p className="muted" style={{ marginTop: 8 }}>顧客・関係者のつながりをまとめて管理</p>
       </div>
       <div className="card">
         <h2 style={{ marginTop: 0 }}>{signup ? "アカウント作成" : "ログイン"}</h2>
