@@ -82,7 +82,7 @@ npm test
 - ワーカー：Edge Function `process-jobs`（`DETECTOR=mock`）を Supabase Cron が毎分起動
 - デモ用ログインは手元の `.env.remote`（Git 管理外）の `DEV_LOGIN_EMAIL` / `DEV_LOGIN_PASSWORD`
 - デモデータの入れ直し：`ENV_FILE=.env.remote ALLOW_NON_LOCAL=1 node scripts/seed-dev.mjs && ENV_FILE=.env.remote ALLOW_NON_LOCAL=1 node scripts/seed-demo-features.mjs`
-- GitHub 連携：`main` に push すると本番へ自動デプロイ（他のブランチはプレビュー。プレビューには環境変数を設定していない）
+- GitHub 連携：`main` に push すると本番へ自動デプロイ（他のブランチはプレビュー。プレビューも同じデモ用 Supabase につながる。プレビューは Vercel の保護で関係者のみ閲覧可）
 - 注意：デモのため、メールアドレスの確認なしで新規登録できる設定（`mailer_autoconfirm`）。人物検出はダミー。実在の個人情報は入れないこと
 
 ## 本番に向けて人が行う作業
