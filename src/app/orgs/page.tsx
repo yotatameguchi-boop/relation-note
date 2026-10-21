@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -25,6 +26,7 @@ export default async function OrgsPage({ searchParams }: { searchParams: Promise
 
   return (
     <div className="auth-wrap" style={{ maxWidth: 640 }}>
+      <div className="auth-hero" style={{ textAlign: "left" }}><Logo size={36} wordSize={20} /></div>
       <div className="spread">
         <h1>団体を選ぶ</h1>
         <form action="/auth/signout" method="post"><button className="btn-secondary btn-small">ログアウト</button></form>

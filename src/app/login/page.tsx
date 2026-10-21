@@ -1,3 +1,4 @@
+import { Logo } from "@/components/Logo";
 import { signIn, signUp } from "./actions";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; mode?: string }> }) {
@@ -5,8 +6,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const signup = sp.mode === "signup";
   return (
     <div className="auth-wrap">
-      <h1>つながり台帳</h1>
-      <p className="muted">NPO向け 顧客・関係人口管理</p>
+      <div className="auth-hero">
+        <h1 style={{ margin: 0 }}><Logo size={44} wordSize={26} /></h1>
+        <p className="muted" style={{ marginTop: 8 }}>NPO向け 顧客・関係人口管理</p>
+      </div>
       <div className="card">
         <h2 style={{ marginTop: 0 }}>{signup ? "アカウント作成" : "ログイン"}</h2>
         {sp.error && <div className="notice notice-danger">{sp.error}</div>}

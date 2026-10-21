@@ -16,6 +16,10 @@ async function done(url: string, error: { message?: string } | null, ok: string)
   redirect(`${url}?ok=${encodeURIComponent(ok)}`);
 }
 
+function splitList(v: FormDataEntryValue | null) {
+  return [...new Set(String(v ?? "").split(/[,、\n]/).map((x) => x.trim()).filter(Boolean))].slice(0, 30);
+}
+
 export async function updatePerson(fd: FormData) {
   const { orgId, personId, url } = ctx(fd);
   const supabase = await createClient();
@@ -23,6 +27,9 @@ export async function updatePerson(fd: FormData) {
     full_name: String(fd.get("full_name") ?? "").trim(),
     full_name_kana: String(fd.get("full_name_kana") ?? "").trim() || null,
     region: String(fd.get("region") ?? "").trim() || null,
+    display_name: String(fd.get("display_name") ?? "").trim() || null,
+    interests: splitList(fd.get("interests")),
+    skills: splitList(fd.get("skills")),
   }).eq("organization_id", orgId).eq("id", personId);
   await done(url, error, "保存しました。");
 }

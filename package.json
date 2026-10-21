@@ -13,21 +13,22 @@
     "worker": "supabase functions serve --env-file supabase/functions/.env --no-verify-jwt"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.75.0",
     "next": "16.4.2",
+    "papaparse": "^5.5.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "@supabase/supabase-js": "^2.75.0",
-    "@supabase/ssr": "^0.7.0",
-    "papaparse": "^5.5.3"
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/papaparse": "^5.3.16",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "typescript": "^5",
-    "vitest": "^3.2.4",
-    "@types/papaparse": "^5.3.16"
+    "vitest": "^3.2.4"
   }
 }

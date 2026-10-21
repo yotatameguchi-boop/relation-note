@@ -87,3 +87,18 @@ export async function importRows(user: TestUser, conn: string, rows: Record<stri
   await drainJobs();
   return { batch, ...res };
 }
+
+export async function setFeatures(org: string, flags: Partial<Record<"partner_sharing" | "photo_pipeline_v2" | "photo_tiling", boolean>>) {
+  must(await admin.from("organization_features").upsert({ organization_id: org, ...flags }));
+}
+
+export async function partnerCode(user: TestUser, org: string) {
+  return must(await user.client.from("organizations").select("partner_code").eq("id", org).single()).partner_code as string;
+}
+
+/** a の団体から b の団体へ連携を申請し、b が承認する */
+export async function partner(a: TestUser, orgA: string, b: TestUser, orgB: string) {
+  const id = must(await a.client.rpc("request_partnership", { org: orgA, code: await partnerCode(b, orgB), msg: "test" })) as string;
+  must(await b.client.rpc("respond_partnership", { partnership: id, accept: true }));
+  return id;
+}

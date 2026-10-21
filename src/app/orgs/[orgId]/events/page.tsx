@@ -23,12 +23,12 @@ export default async function Events({ params, searchParams }: { params: Promise
           <form action={createEvent} style={{ marginTop: 10 }}>
             <input type="hidden" name="orgId" value={orgId} />
             <div className="row" style={{ alignItems: "flex-end" }}>
-              <div className="inline-field" style={{ flex: 2 }}><label>イベント名 *</label><input name="title" required /></div>
-              <div className="inline-field"><label>開始 *</label><input type="datetime-local" name="starts_at" required /></div>
-              <div className="inline-field"><label>終了</label><input type="datetime-local" name="ends_at" /></div>
-              <div className="inline-field" style={{ flex: 1 }}><label>場所</label><input name="location" /></div>
+              <label className="inline-field" style={{ flex: 2 }}>イベント名 *<input name="title" required /></label>
+              <label className="inline-field">開始 *<input type="datetime-local" name="starts_at" required /></label>
+              <label className="inline-field">終了<input type="datetime-local" name="ends_at" /></label>
+              <label className="inline-field" style={{ flex: 1 }}>場所<input name="location" /></label>
             </div>
-            <div className="field" style={{ marginTop: 10 }}><label>説明</label><textarea name="description" style={{ minHeight: 50 }} /></div>
+            <label className="field" style={{ marginTop: 10 }}>説明<textarea name="description" style={{ minHeight: 50 }} /></label>
             <button>登録</button>
           </form>
         </details>

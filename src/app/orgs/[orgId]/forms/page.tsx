@@ -45,14 +45,14 @@ export default async function Forms({ params, searchParams }: { params: Promise<
           <input type="hidden" name="orgId" value={orgId} />
           <h3 style={{ marginTop: 0 }}>フォームを追加</h3>
           <div className="row" style={{ alignItems: "flex-end" }}>
-            <div className="inline-field" style={{ flex: 2 }}><label>名前</label><input name="name" required placeholder="例：ボランティア募集フォーム" /></div>
+            <label className="inline-field" style={{ flex: 2 }}>名前<input name="name" required placeholder="例：ボランティア募集フォーム" /></label>
             <div className="inline-field">
               <label>方式</label>
-              <select name="kind"><option value="csv">CSV取り込み</option><option value="webhook">外部フォーム自動連携</option></select>
+              <select name="kind" aria-label="方式"><option value="csv">CSV取り込み</option><option value="webhook">外部フォーム自動連携</option></select>
             </div>
             <div className="inline-field" style={{ flex: 1 }}>
               <label>申込先イベント（任意）</label>
-              <select name="event_id" defaultValue="">
+              <select name="event_id" defaultValue="" aria-label="申込先イベント">
                 <option value="">なし</option>
                 {(events ?? []).map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
               </select>

@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireMembership } from "@/lib/auth";
+import { getFeatures, requireMembership } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toMessage } from "@/lib/errors";
-import { fmtBytes } from "@/lib/format";
+import { fmtBytes, nowMs } from "@/lib/format";
 import { USAGE_LABEL, type Usage } from "@/lib/usage";
 import { Flash, Meter } from "@/components/ui";
 
@@ -57,6 +57,10 @@ export default async function Settings({ params, searchParams }: { params: Promi
     supabase.rpc("org_usage", { org: orgId }),
   ]);
   const u = usage as Usage;
+  const features = await getFeatures(orgId);
+  const { data: apiCalls } = await supabase.from("analysis_usage_records").select("provider, provider_calls, billable_units, created_at")
+    .eq("organization_id", orgId).gte("created_at", new Date(nowMs() - 31 * 86400e3).toISOString());
+  const calls = (apiCalls ?? []).reduce((s, r) => s + r.provider_calls, 0);
   const plan = org.plans as { name: string; monthly_price_jpy: number | null; yearly_price_jpy: number | null };
   const owner = m.role === "owner";
   return (
@@ -81,19 +85,30 @@ export default async function Settings({ params, searchParams }: { params: Promi
         </p>
       </div>
 
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>機能の有効化状況</h2>
+        <table className="small"><tbody>
+          <tr><th>団体間の連携・活動者データ共有</th><td>{features.partner_sharing ? <span className="badge badge-ok">有効</span> : <span className="badge">無効</span>}</td></tr>
+          <tr><th>写真解析 v2（向きの補正・重複の整理・修正UI）</th><td>{features.photo_pipeline_v2 ? <span className="badge badge-ok">有効</span> : <span className="badge">無効</span>}</td></tr>
+          <tr><th>写真の領域分割解析（評価中）</th><td>{features.photo_tiling ? <span className="badge badge-warn">有効（評価中）</span> : <span className="badge">無効</span>}</td></tr>
+          {apiCalls && <tr><th>直近31日の外部API呼び出し（人物検出）</th><td>{calls}回（利用枠の「写真解析」枚数とは別に記録）</td></tr>}
+        </tbody></table>
+        <p className="small muted">機能の有効化は運営側で行います。実データで使う前に検証用の団体で確認します。</p>
+      </div>
+
       <form action={save} className="card">
         <input type="hidden" name="orgId" value={orgId} />
         <h2 style={{ marginTop: 0 }}>団体設定</h2>
         {!owner && <p className="notice notice-info small">変更はオーナーのみ行えます。</p>}
         <fieldset disabled={!owner} style={{ border: 0, padding: 0, margin: 0 }}>
-          <div className="field"><label>団体名</label><input name="name" defaultValue={org.name} required /></div>
+          <label className="field">団体名<input name="name" defaultValue={org.name} required /></label>
           <h3>「関係人口」の定義</h3>
           <div className="row">
-            <div className="inline-field"><label>対象期間（日）：この期間に参加・応募した人物を関係人口とする</label><input type="number" name="relation_window_days" min={1} max={3650} defaultValue={org.relation_window_days} /></div>
-            <div className="inline-field"><label>継続参加とみなす参加回数</label><input type="number" name="repeat_threshold" min={2} max={100} defaultValue={org.repeat_threshold} /></div>
+            <label className="inline-field">対象期間（日）：この期間に参加・応募した人物を関係人口とする<input type="number" name="relation_window_days" min={1} max={3650} defaultValue={org.relation_window_days} /></label>
+            <label className="inline-field">継続参加とみなす参加回数<input type="number" name="repeat_threshold" min={2} max={100} defaultValue={org.repeat_threshold} /></label>
           </div>
           <h3>写真</h3>
-          <div className="inline-field"><label>写真の保存期間（日）：過ぎると画像を削除（人数の記録は残す）</label><input type="number" name="photo_retention_days" min={1} max={3650} defaultValue={org.photo_retention_days} /></div>
+          <label className="inline-field">写真の保存期間（日）：過ぎると画像を削除（人数の記録は残す）<input type="number" name="photo_retention_days" min={1} max={3650} defaultValue={org.photo_retention_days} /></label>
           <div style={{ marginTop: 12 }}><button>保存</button></div>
         </fieldset>
       </form>

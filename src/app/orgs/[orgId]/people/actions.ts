@@ -16,6 +16,12 @@ export async function bulkAction(fd: FormData) {
   const supabase = await createClient();
   let error;
   let msg = "";
+  if (action === "share") {
+    redirect(`/orgs/${orgId}/sharing/new?people=${ids.join(",")}`);
+  }
+  if (action === "authorize") {
+    redirect(`/orgs/${orgId}/sharing/authorizations?people=${ids.join(",")}`);
+  }
   if (action === "tag_add" || action === "tag_remove") {
     const tag = String(fd.get("tag") ?? "");
     if (!tag) redirect(back(orgId, `${ret}${sep}error=${encodeURIComponent("タグを選んでください。")}`));

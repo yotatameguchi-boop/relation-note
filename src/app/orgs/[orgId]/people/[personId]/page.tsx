@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireMembership, can } from "@/lib/auth";
+import { requireMembership, can, canManageSharing, getFeatures } from "@/lib/auth";
+import { partnerNames } from "@/lib/sharing";
 import { createClient } from "@/lib/supabase/server";
 import { fmtDate, fmtDateTime, MATCH_REASON_LABEL } from "@/lib/format";
 import { Flash, StatusBadge, TagChip } from "@/components/ui";
@@ -30,6 +31,19 @@ export default async function PersonPage({ params, searchParams }: {
       : Promise.resolve({ data: [] as never[] }),
     supabase.from("person_merge_history").select("id, merged_person_id, merged_snapshot, created_at").eq("organization_id", orgId).eq("kept_person_id", personId).order("created_at", { ascending: false }),
   ]);
+  const features = await getFeatures(orgId);
+  const sharing = features.partner_sharing && canManageSharing(m)
+    ? await (async () => {
+        const [auths, grants, names] = await Promise.all([
+          supabase.from("sharing_authorizations").select("id, purpose, status, valid_until, target_organization_id").eq("organization_id", orgId).eq("person_id", personId).order("created_at", { ascending: false }),
+          supabase.from("person_share_grants").select("id, status, expires_at, current_version, target_organization_id").eq("organization_id", orgId).eq("person_id", personId).order("created_at", { ascending: false }),
+          partnerNames(orgId),
+        ]);
+        const named = <T extends { target_organization_id: string }>(rows: T[] | null) =>
+          (rows ?? []).map((r) => ({ ...r, organizations: { name: names.get(r.target_organization_id) ?? "（連携していない団体）" } }));
+        return { auths: named(auths.data), grants: named(grants.data) };
+      })()
+    : null;
   const tagSet = new Set((myTags.data ?? []).map((t) => t.tag_id));
   const hidden = (<><input type="hidden" name="orgId" value={orgId} /><input type="hidden" name="personId" value={personId} /></>);
   const participations = (parts.data ?? []).map((x) => ({ ...x, event: x.events as unknown as { id: string; title: string; starts_at: string } }))
@@ -55,13 +69,21 @@ export default async function PersonPage({ params, searchParams }: {
           {editor ? (
             <form action={updatePerson}>
               {hidden}
-              <div className="field"><label>氏名</label><input name="full_name" defaultValue={p.full_name} required /></div>
-              <div className="field"><label>ふりがな</label><input name="full_name_kana" defaultValue={p.full_name_kana ?? ""} /></div>
-              <div className="field"><label>居住地域</label><input name="region" defaultValue={p.region ?? ""} /></div>
+              <label className="field">氏名<input name="full_name" defaultValue={p.full_name} required /></label>
+              <label className="field">ふりがな<input name="full_name_kana" defaultValue={p.full_name_kana ?? ""} /></label>
+              <label className="field">居住地域<input name="region" defaultValue={p.region ?? ""} /></label>
+              <label className="field">表示名（ニックネームなど）<input name="display_name" defaultValue={p.display_name ?? ""} maxLength={100} /></label>
+              <label className="field">関心分野（カンマ区切り）<input name="interests" defaultValue={(p.interests ?? []).join(", ")} /></label>
+              <label className="field">スキル（カンマ区切り）<input name="skills" defaultValue={(p.skills ?? []).join(", ")} /></label>
               <button>保存</button>
             </form>
           ) : (
-            <p>地域: {p.region ?? "—"}</p>
+            <>
+              <p>地域: {p.region ?? "—"}</p>
+              {p.display_name && <p>表示名: {p.display_name}</p>}
+              {(p.interests ?? []).length > 0 && <p>関心分野: {p.interests.join("、")}</p>}
+              {(p.skills ?? []).length > 0 && <p>スキル: {p.skills.join("、")}</p>}
+            </>
           )}
           {Object.keys(p.attributes ?? {}).length > 0 && (
             <>
@@ -179,6 +201,27 @@ export default async function PersonPage({ params, searchParams }: {
               </tbody></table>
             </details>
           ))}
+        </div>
+      )}
+
+      {sharing && (
+        <div className="card">
+          <div className="spread">
+            <h2 style={{ marginTop: 0 }}>他団体への共有</h2>
+            <Link className="btn btn-secondary btn-small" href={`/orgs/${orgId}/sharing/new?people=${personId}`}>共有を設定</Link>
+          </div>
+          <p className="small muted">共有先には、公開した時点の許可された項目だけが見えます。この画面で情報を編集しても、共有内容は自動では変わりません。</p>
+          <table className="small"><tbody>
+            {(sharing.auths ?? []).map((a) => (
+              <tr key={a.id}><td>共有根拠</td><td>{a.organizations?.name}</td><td>{a.purpose}</td>
+                <td>{a.status === "withdrawn" ? <span className="badge badge-danger">撤回</span> : a.valid_until && new Date(a.valid_until) <= new Date() ? <span className="badge">失効</span> : <span className="badge badge-ok">有効</span>}</td></tr>
+            ))}
+            {(sharing.grants ?? []).map((g) => (
+              <tr key={g.id}><td>共有</td><td>{g.organizations?.name}</td><td>第{g.current_version}版・期限 {g.expires_at.slice(0, 10)}</td>
+                <td><Link href={`/orgs/${orgId}/sharing/grants/${g.id}`}>{g.status === "active" ? "共有中" : g.status === "stopped" ? "停止" : "期限切れ"}</Link></td></tr>
+            ))}
+            {!(sharing.auths ?? []).length && !(sharing.grants ?? []).length && <tr><td className="muted">共有していません。</td></tr>}
+          </tbody></table>
         </div>
       )}
 

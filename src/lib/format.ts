@@ -58,3 +58,7 @@ export const MATCH_REASON_LABEL: Record<string, string> = {
   new: "一致なし（新規作成）",
   manual: "スタッフが判断",
 };
+
+/** サーバーコンポーネントで「今」を基準にした計算をするとき用（描画ごとに評価される） */
+export const nowMs = () => Date.now();
+export const todayJst = (offsetDays = 0) => new Date(nowMs() + 9 * 3600e3 + offsetDays * 86400e3).toISOString().slice(0, 10);

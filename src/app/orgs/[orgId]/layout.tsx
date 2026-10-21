@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { requireMembership, can } from "@/lib/auth";
+import { requireMembership, can, canManageSharing, getFeatures, hasPerm } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Nav } from "@/components/Nav";
+import { Logo } from "@/components/Logo";
 import { ROLE_LABEL } from "@/lib/roles";
 import { usageWarnings, type Usage } from "@/lib/usage";
 
@@ -14,14 +15,22 @@ export default async function OrgLayout({ children, params }: { children: React.
   const base = `/orgs/${orgId}`;
   const editor = can(m, "editor");
   const admin = can(m, "admin");
+  const features = await getFeatures(orgId);
+  const sharingNav = features.partner_sharing
+    ? [
+        ...(canManageSharing(m) || hasPerm(m, "view_shared") ? [{ href: `${base}/sharing`, label: "団体連携", exact: true }] : []),
+        ...(canManageSharing(m) ? [{ href: `${base}/sharing/outgoing`, label: "自団体から共有中" }] : []),
+        ...(hasPerm(m, "view_shared") ? [{ href: `${base}/sharing/received`, label: "他団体から共有された活動者" }] : []),
+      ]
+    : [];
 
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">つながり台帳</div>
+        <div className="brand"><Link href="/orgs" className="logo" aria-label="RelationNote 団体の選択へ"><Logo size={30} wordSize={16} /></Link></div>
         <div className="small" style={{ margin: "0 10px 8px" }}>
           <strong>{m.organizationName}</strong>
-          <div className="muted">{ROLE_LABEL[m.role]}・<Link href="/orgs">団体を切り替え</Link></div>
+          <div className="muted org-switch">{ROLE_LABEL[m.role]}・<Link href="/orgs">団体を切り替え</Link></div>
         </div>
         <Nav
           sections={[
@@ -50,6 +59,7 @@ export default async function OrgLayout({ children, params }: { children: React.
                 { href: `${base}/photos`, label: "写真と人数推定" },
               ],
             },
+            ...(sharingNav.length ? [{ title: "団体間共有", items: sharingNav }] : []),
             {
               title: "運用",
               items: [

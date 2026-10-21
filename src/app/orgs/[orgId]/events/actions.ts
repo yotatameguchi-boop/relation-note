@@ -47,7 +47,11 @@ export async function confirmHeadcount(fd: FormData) {
   const { eventId, url } = ev(fd);
   const raw = String(fd.get("headcount") ?? "").trim();
   const supabase = await createClient();
-  const { error } = await supabase.rpc("confirm_event_headcount", { event: eventId, headcount: raw === "" ? null : Number(raw) });
+  const { error } = await supabase.rpc("confirm_event_headcount", {
+    event: eventId, headcount: raw === "" ? null : Number(raw),
+    p_method: String(fd.get("method") ?? "manual_tally"), p_basis: String(fd.get("basis") ?? ""),
+    p_note: String(fd.get("note") ?? ""), p_photo_ids: fd.getAll("photo_ids").map(String),
+  });
   await done(url, error, raw === "" ? "確定人数を取り消しました。" : "参加人数を確定しました。");
 }
 

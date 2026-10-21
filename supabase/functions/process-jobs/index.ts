@@ -6,6 +6,15 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createDetector, NonRetryableError } from "../_shared/detector.ts";
 import { csvCell } from "../_shared/csv.ts";
+import {
+  DEFAULT_SETTINGS, mapTileDetection, reviewReasons, suppressDuplicates, type RawDetection, type TileRect,
+} from "../_shared/counting.ts";
+
+// 領域分割を使う場合の上限（外部APIの呼び出し回数・処理時間）
+const MAX_PROVIDER_CALLS_PER_JOB = Number(Deno.env.get("PHOTO_MAX_PROVIDER_CALLS") ?? "7");
+const PHOTO_TIME_BUDGET_MS = Number(Deno.env.get("PHOTO_TIME_BUDGET_MS") ?? "25000");
+// API 側にはしきい値より低めの候補まで返させ、整理（suppressDuplicates）で min_score を適用する
+const PROVIDER_MIN_CONFIDENCE = Number(Deno.env.get("DETECTOR_CANDIDATE_MIN_CONFIDENCE") ?? "40");
 
 const TIME_BUDGET_MS = Number(Deno.env.get("WORKER_TIME_BUDGET_MS") ?? "40000");
 const VISIBILITY_SECONDS = 120;
@@ -32,32 +41,108 @@ async function rpc<T = unknown>(db: SupabaseClient, fn: string, args: Record<str
   return data as T;
 }
 
+type PhotoRow = {
+  id: string; organization_id: string; storage_path: string; size_bytes: number; mime_type: string;
+  analysis_path: string | null;
+  analysis_meta: { tiles?: (TileRect & { path: string })[]; stats?: { mean_luma?: number } } | null;
+};
+
+async function download(db: SupabaseClient, org: string, path: string) {
+  // サービスロールで動くので、保存先が対象団体のフォルダであることを必ず確認する
+  if (!path.startsWith(`${org}/`)) throw new NonRetryableError("tenant_mismatch");
+  const { data, error } = await db.storage.from("photos").download(path);
+  if (error || !data) throw new Error(`画像を取得できません: ${error?.message}`);
+  return new Uint8Array(await data.arrayBuffer());
+}
+
 async function handlePhoto(db: SupabaseClient, job: Claimed, deadline: number) {
   const { data: photo, error } = await db.from("photos")
-    .select("id, organization_id, storage_path, size_bytes, mime_type")
-    .eq("id", job.target_id!).eq("organization_id", job.organization_id).maybeSingle();
+    .select("id, organization_id, storage_path, size_bytes, mime_type, analysis_path, analysis_meta")
+    .eq("id", job.target_id!).eq("organization_id", job.organization_id).maybeSingle<PhotoRow>();
   if (error) throw error;
   if (!photo) throw new NonRetryableError("写真が見つかりません（削除済みの可能性）");
-  if (!photo.storage_path.startsWith(`${job.organization_id}/`)) throw new NonRetryableError("tenant_mismatch");
-  const { data: blob, error: dlErr } = await db.storage.from("photos").download(photo.storage_path);
-  if (dlErr || !blob) throw new Error(`画像を取得できません: ${dlErr?.message}`);
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  if (Date.now() > deadline) throw new Error("time_budget_exceeded");
+  if (photo.analysis_path) return await handlePhotoV2(db, job, photo, deadline);
 
-  // 外部APIの呼び出しを試行単位で記録（結果保存に失敗して再試行すると料金が再発生しうるため）
+  // v1：元ファイルをそのまま検出にかける（photo_pipeline_v2 が無効な団体）
+  const bytes = await download(db, job.organization_id, photo.storage_path);
+  if (Date.now() > deadline) throw new Error("time_budget_exceeded");
   await rpc(db, "worker_note_external_call", { job: job.job_id });
   const result = await createDetector().detect(bytes);
-
   await rpc(db, "worker_save_photo_result", {
-    job: job.job_id,
-    estimated: result.count,
-    dets: result.detections,
-    provider: result.provider,
-    model: result.model,
-    version: result.version,
-    min_conf: result.minConfidence,
+    job: job.job_id, estimated: result.count, dets: result.detections, provider: result.provider,
+    model: result.model, version: result.version, min_conf: result.minConfidence,
   });
   await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { estimated_count: result.count } });
+}
+
+async function handlePhotoV2(db: SupabaseClient, job: Claimed, photo: PhotoRow, deadline: number) {
+  const started = Date.now();
+  const stopAt = Math.min(deadline, started + PHOTO_TIME_BUDGET_MS);
+  const detector = createDetector();
+  const tilingOn = await rpc<boolean>(db, "feature_enabled", { org: job.organization_id, flag: "photo_tiling" });
+  const tiles = tilingOn ? (photo.analysis_meta?.tiles ?? []) : [];
+  let calls = 0;
+  let provider = "";
+  let model = "";
+  let version: string | null = null;
+
+  const call = async (bytes: Uint8Array) => {
+    if (calls >= MAX_PROVIDER_CALLS_PER_JOB) throw new Error("max_provider_calls");
+    calls++;
+    const r = await detector.detect(bytes, { minConfidence: PROVIDER_MIN_CONFIDENCE });
+    // 結果保存の前に呼び出しを記録する（保存に失敗して再試行すると、外部APIの料金が再発生しうるため）
+    await rpc(db, "worker_note_provider_calls", { job: job.job_id, p_provider: r.provider, calls: 1, units: 1 });
+    provider = r.provider; model = r.model; version = r.version;
+    return r;
+  };
+
+  // 1) 全体画像で検出（基本）
+  const full = await call(await download(db, job.organization_id, photo.analysis_path!));
+  const raw: RawDetection[] = full.detections.map((d) => ({ x: d.x, y: d.y, w: d.w, h: d.h, score: d.confidence, source: "full" }));
+  const fullOnly = suppressDuplicates(raw, DEFAULT_SETTINGS).filter((d) => d.status === "kept").length;
+
+  // 2) 領域分割（機能フラグ有効時のみ。上限内で、時間が残っている分だけ）
+  let tilesUsed = 0;
+  let tilesSkipped = 0;
+  for (const t of tiles) {
+    if (calls >= MAX_PROVIDER_CALLS_PER_JOB || Date.now() > stopAt - 3000) { tilesSkipped++; continue; }
+    const r = await call(await download(db, job.organization_id, t.path));
+    for (const d of r.detections) raw.push(mapTileDetection({ x: d.x, y: d.y, w: d.w, h: d.h, score: d.confidence }, t));
+    tilesUsed++;
+  }
+
+  // 3) 整理：重複の抑制（全体と領域の件数は単純加算しない）
+  const processed = suppressDuplicates(raw, DEFAULT_SETTINGS);
+  const kept = processed.filter((d) => d.status === "kept").length;
+  const reasons = reviewReasons({
+    detections: processed, mean_luma: photo.analysis_meta?.stats?.mean_luma ?? null,
+    full_only_kept: tilesUsed > 0 ? fullOnly : null,
+  });
+  if (tilesSkipped > 0) reasons.push("tiling_incomplete");
+
+  await rpc(db, "worker_save_analysis_run", {
+    job: job.job_id,
+    run: {
+      estimated_count: kept,
+      raw_count: raw.length,
+      provider, model, model_version: version,
+      duration_ms: Date.now() - started,
+      provider_calls: calls,
+      tiles_used: tilesUsed,
+      review_reasons: reasons,
+      settings: {
+        ...DEFAULT_SETTINGS, candidate_min_confidence: PROVIDER_MIN_CONFIDENCE,
+        tiling: { enabled: tilingOn, available: (photo.analysis_meta?.tiles ?? []).length, used: tilesUsed, skipped: tilesSkipped,
+                  max_provider_calls: MAX_PROVIDER_CALLS_PER_JOB },
+        full_only_count: fullOnly,
+      },
+      detections: processed.map((d) => ({
+        x: d.x, y: d.y, w: d.w, h: d.h, score: d.score, source: d.source, tile: d.tile ?? null,
+        status: d.status, reason: d.reason ?? null, dup_of: d.dup_of ?? null,
+      })),
+    },
+  });
+  await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { estimated_count: kept, provider_calls: calls } });
 }
 
 async function handleSubmissions(db: SupabaseClient, job: Claimed, deadline: number) {
@@ -117,9 +202,10 @@ async function handleExport(db: SupabaseClient, job: Claimed) {
 }
 
 async function maintenance(db: SupabaseClient) {
-  const expired = await rpc<{ photo_id: string; storage_path: string; reason: string }[]>(db, "worker_expired_photos", { max_rows: 100 });
+  const expired = await rpc<{ photo_id: string; storage_path: string; reason: string; extra_paths: string[] }[]>(
+    db, "worker_expired_photos", { max_rows: 100 });
   if (!expired.length) return 0;
-  await db.storage.from("photos").remove(expired.map((e) => e.storage_path));
+  await db.storage.from("photos").remove(expired.flatMap((e) => [e.storage_path, ...(e.extra_paths ?? [])]));
   for (const e of expired) await rpc(db, "worker_mark_photo_removed", { photo: e.photo_id, reason: e.reason });
   return expired.length;
 }

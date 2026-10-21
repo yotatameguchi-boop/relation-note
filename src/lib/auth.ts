@@ -47,7 +47,7 @@ export const getMembership = cache(async (orgId: string): Promise<Membership | n
     status: org.status,
     role: data.role as Role,
     permissions: (data.role === "owner"
-      ? ["bulk_export", "bulk_delete", "merge_people", "manage_permissions"]
+      ? ["bulk_export", "bulk_delete", "merge_people", "manage_permissions", "manage_sharing", "view_shared"]
       : data.permissions) as Permission[],
   };
 });
@@ -67,4 +67,18 @@ export function can(m: Membership, minRole: Role) {
 
 export function hasPerm(m: Membership, p: Permission) {
   return m.role === "owner" || m.permissions.includes(p);
+}
+
+export type Features = { partner_sharing: boolean; photo_pipeline_v2: boolean; photo_tiling: boolean };
+
+export const getFeatures = cache(async (orgId: string): Promise<Features> => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("organization_features").select("partner_sharing, photo_pipeline_v2, photo_tiling")
+    .eq("organization_id", orgId).maybeSingle();
+  return { partner_sharing: !!data?.partner_sharing, photo_pipeline_v2: !!data?.photo_pipeline_v2, photo_tiling: !!data?.photo_tiling };
+});
+
+/** 共有設定（連携・根拠・共有）を行える立場か */
+export function canManageSharing(m: Membership) {
+  return can(m, "admin") && hasPerm(m, "manage_sharing");
 }

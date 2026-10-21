@@ -6,6 +6,13 @@ import { fmtDateTime, isoToJstLocal } from "@/lib/format";
 import { Flash, StatusBadge } from "@/components/ui";
 import { addParticipants, confirmHeadcount, deleteEvent, setParticipationStatus, updateEvent } from "../actions";
 
+const METHOD_LABEL: Record<string, string> = {
+  reception: "受付記録",
+  manual_tally: "手動集計",
+  photo_assisted: "写真を参考に確認",
+  other: "その他",
+};
+
 export default async function EventPage({ params, searchParams }: {
   params: Promise<{ orgId: string; eventId: string }>; searchParams: Promise<{ error?: string; ok?: string; q?: string }>;
 }) {
@@ -16,7 +23,7 @@ export default async function EventPage({ params, searchParams }: {
   const { data: e } = await supabase.from("events").select("*").eq("organization_id", orgId).eq("id", eventId).maybeSingle();
   if (!e) notFound();
   const editor = can(m, "editor");
-  const [{ data: parts }, { data: photos }, search] = await Promise.all([
+  const [{ data: parts }, { data: photos }, search, { data: counts }] = await Promise.all([
     supabase.from("event_participations").select("id, status, status_changed_at, person_id, people(full_name, full_name_kana)")
       .eq("organization_id", orgId).eq("event_id", eventId),
     supabase.from("photos").select("id, status, original_filename, photo_analysis_results(estimated_count, analyzed_at), photo_reviews(confirmed_count, reviewed_at)")
@@ -24,6 +31,8 @@ export default async function EventPage({ params, searchParams }: {
     sp.q && editor
       ? supabase.rpc("search_people", { org: orgId, q: sp.q, page_size: 20, page: 1 })
       : Promise.resolve({ data: null }),
+    supabase.from("event_count_records").select("id, headcount, method, basis, note, photo_ids, confirmed_at, users(display_name)")
+      .eq("organization_id", orgId).eq("event_id", eventId).order("confirmed_at", { ascending: false }).limit(20),
   ]);
   const list = (parts ?? []).map((p) => ({ ...p, person: p.people as unknown as { full_name: string; full_name_kana: string | null } }))
     .sort((a, b) => (a.person.full_name_kana ?? a.person.full_name).localeCompare(b.person.full_name_kana ?? b.person.full_name, "ja"));
@@ -55,31 +64,61 @@ export default async function EventPage({ params, searchParams }: {
           <form action={updateEvent} className="card">
             {hidden}
             <h2 style={{ marginTop: 0 }}>イベント情報</h2>
-            <div className="field"><label>イベント名</label><input name="title" defaultValue={e.title} required /></div>
+            <label className="field">イベント名<input name="title" defaultValue={e.title} required /></label>
             <div className="row">
-              <div className="inline-field" style={{ flex: 1 }}><label>開始</label><input type="datetime-local" name="starts_at" defaultValue={isoToJstLocal(e.starts_at)} required /></div>
-              <div className="inline-field" style={{ flex: 1 }}><label>終了</label><input type="datetime-local" name="ends_at" defaultValue={isoToJstLocal(e.ends_at)} /></div>
+              <label className="inline-field" style={{ flex: 1 }}>開始<input type="datetime-local" name="starts_at" defaultValue={isoToJstLocal(e.starts_at)} required /></label>
+              <label className="inline-field" style={{ flex: 1 }}>終了<input type="datetime-local" name="ends_at" defaultValue={isoToJstLocal(e.ends_at)} /></label>
             </div>
-            <div className="field" style={{ marginTop: 10 }}><label>場所</label><input name="location" defaultValue={e.location ?? ""} /></div>
-            <div className="field"><label>匿名参加者数（名簿に載らない参加者）</label><input type="number" min={0} name="anonymous_count" defaultValue={e.anonymous_count} /></div>
-            <div className="field"><label>説明</label><textarea name="description" defaultValue={e.description ?? ""} /></div>
+            <label className="field" style={{ marginTop: 10 }}>場所<input name="location" defaultValue={e.location ?? ""} /></label>
+            <label className="field">匿名参加者数（名簿に載らない参加者）<input type="number" min={0} name="anonymous_count" defaultValue={e.anonymous_count} /></label>
+            <label className="field">説明<textarea name="description" defaultValue={e.description ?? ""} /></label>
             <button>保存</button>
           </form>
         )}
         <div className="card">
           <h2 style={{ marginTop: 0 }}>参加人数の確定</h2>
           <p className="small muted">
-            受付記録と実際の人数が違う場合に、スタッフが参加人数を確定します。写真の推定人数は参考値で、写っていない参加者もいるため自動では反映しません。
+            受付記録と実際の人数が違う場合などに、根拠と一緒に参加人数を確定します。
+            写真の人数は参考値です。写っていない参加者がいるほか、写真だけでは同じ人が複数の写真に写っていても見分けられない（個人単位の重複を除けない）ため、自動では反映しません。
           </p>
           {editor && (
-            <form action={confirmHeadcount} className="row">
+            <form action={confirmHeadcount}>
               {hidden}
-              <input type="number" min={0} name="headcount" defaultValue={e.confirmed_headcount ?? ""} placeholder={String(attended + e.anonymous_count)} style={{ width: 120 }} />
-              <button className="btn-small">確定</button>
-              <span className="small muted">空欄で確定を取り消し</span>
+              <div className="row">
+                <div className="inline-field" style={{ minWidth: 110 }}><label>人数</label>
+                  <input type="number" min={0} name="headcount" aria-label="人数" defaultValue={e.confirmed_headcount ?? ""} placeholder={String(attended + e.anonymous_count)} /></div>
+                <label className="inline-field">計測方法<select name="method" defaultValue="reception" aria-label="計測方法">
+                    {Object.entries(METHOD_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                  </select></label>
+              </div>
+              <label className="field" style={{ marginTop: 8 }}>根拠（例：受付名簿の枚数、カウンターでの計測）<input name="basis" maxLength={1000} /></label>
+              {(photos ?? []).length > 0 && (
+                <div className="field"><label>参考にした写真（任意）</label>
+                  <div className="row">{(photos ?? []).map((ph) => (
+                    <label key={ph.id} className="row small" style={{ margin: 0, color: "var(--text)" }}><input type="checkbox" name="photo_ids" value={ph.id} />{ph.original_filename ?? "写真"}</label>
+                  ))}</div>
+                </div>
+              )}
+              <label className="field">注記<input name="note" maxLength={1000} /></label>
+              <div className="row"><button className="btn-small">確定</button><span className="small muted">人数を空欄にすると確定を取り消します</span></div>
             </form>
           )}
-          <h3>このイベントの写真</h3>
+          {(counts ?? []).length > 0 && (
+            <>
+              <h3>確定の記録</h3>
+              <table className="small"><tbody>
+                {(counts ?? []).map((c) => (
+                  <tr key={c.id}>
+                    <td>{fmtDateTime(c.confirmed_at)}</td>
+                    <td>{(c.users as unknown as { display_name: string } | null)?.display_name}</td>
+                    <td className="num"><strong>{c.headcount ?? "取消"}</strong></td>
+                    <td>{METHOD_LABEL[c.method] ?? (c.method === "cleared" ? "確定の取り消し" : c.method)}{c.basis && `：${c.basis}`}{c.photo_ids.length > 0 && `（写真${c.photo_ids.length}枚を参考）`}{c.note && <div className="muted">{c.note}</div>}</td>
+                  </tr>
+                ))}
+              </tbody></table>
+            </>
+          )}
+          <h3>このイベントの写真（写真ごとの人数・合算しません）</h3>
           {(photos ?? []).length === 0 && <p className="small muted">写真はありません。<Link href={`/orgs/${orgId}/photos?event=${eventId}`}>写真を追加</Link></p>}
           <table className="small"><tbody>
             {(photos ?? []).map((p) => {

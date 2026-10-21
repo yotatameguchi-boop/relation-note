@@ -1,3 +1,4 @@
+import { Logo } from "@/components/Logo";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -19,6 +20,7 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
   if (!user) redirect(`/login?next=${encodeURIComponent(`/invite/${token}`)}`);
   return (
     <div className="auth-wrap">
+      <div className="auth-hero"><Logo size={36} wordSize={20} /></div>
       <h1>団体への招待</h1>
       <div className="card">
         {sp.error && <div className="notice notice-danger">{sp.error}</div>}

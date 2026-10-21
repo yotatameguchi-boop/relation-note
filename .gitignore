@@ -45,3 +45,7 @@ next-env.d.ts
 supabase/.temp/
 supabase/.branches/
 supabase/functions/.env
+
+# 評価用の実写真（個人が写るため Git に入れない）
+eval/images/
+eval/.eval-org-*.json

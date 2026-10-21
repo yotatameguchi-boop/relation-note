@@ -15,11 +15,11 @@ export default async function NewPerson({ params, searchParams }: { params: Prom
       <Flash sp={sp} />
       <form action={createPerson} className="card" style={{ maxWidth: 640 }}>
         <input type="hidden" name="orgId" value={orgId} />
-        <div className="field"><label>氏名 *</label><input name="full_name" required maxLength={200} /></div>
-        <div className="field"><label>ふりがな</label><input name="full_name_kana" /></div>
-        <div className="field"><label>居住地域</label><input name="region" placeholder="例：〇〇市" /></div>
-        <div className="field"><label>メールアドレス（複数は改行区切り）</label><textarea name="emails" style={{ minHeight: 50 }} /></div>
-        <div className="field"><label>電話番号（複数は改行区切り）</label><textarea name="phones" style={{ minHeight: 50 }} /></div>
+        <label className="field">氏名 *<input name="full_name" required maxLength={200} /></label>
+        <label className="field">ふりがな<input name="full_name_kana" /></label>
+        <label className="field">居住地域<input name="region" placeholder="例：〇〇市" /></label>
+        <label className="field">メールアドレス（複数は改行区切り）<textarea name="emails" style={{ minHeight: 50 }} /></label>
+        <label className="field">電話番号（複数は改行区切り）<textarea name="phones" style={{ minHeight: 50 }} /></label>
         {tags && tags.length > 0 && (
           <div className="field">
             <label>タグ</label>

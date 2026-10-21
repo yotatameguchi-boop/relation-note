@@ -65,10 +65,10 @@ Content-Type: application/json
         {!admin && <p className="notice notice-info small">設定の変更は管理者のみ行えます。</p>}
         <fieldset disabled={!admin} style={{ border: 0, padding: 0, margin: 0 }}>
           <div className="row" style={{ alignItems: "flex-end" }}>
-            <div className="inline-field" style={{ flex: 1 }}><label>名前</label><input name="name" defaultValue={c.name} required /></div>
+            <label className="inline-field" style={{ flex: 1 }}>名前<input name="name" defaultValue={c.name} required /></label>
             <div className="inline-field" style={{ flex: 1 }}>
               <label>申込先イベント（回答を「申込」として登録）</label>
-              <select name="event_id" defaultValue={c.event_id ?? ""}>
+              <select name="event_id" defaultValue={c.event_id ?? ""} aria-label="申込先イベント">
                 <option value="">なし</option>
                 {(events ?? []).map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
               </select>

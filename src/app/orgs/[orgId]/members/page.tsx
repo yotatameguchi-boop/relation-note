@@ -148,10 +148,10 @@ export default async function Members({ params, searchParams }: { params: Promis
           {hidden}
           <h2 style={{ marginTop: 0 }}>スタッフを招待</h2>
           <div className="row" style={{ alignItems: "flex-end" }}>
-            <div className="inline-field" style={{ flex: 2 }}><label>メールアドレス</label><input type="email" name="email" required /></div>
+            <label className="inline-field" style={{ flex: 2 }}>メールアドレス<input type="email" name="email" required /></label>
             <div className="inline-field">
               <label>役割</label>
-              <select name="role" defaultValue="editor">
+              <select name="role" defaultValue="editor" aria-label="役割">
                 {(canPerm ? ["admin", "editor", "viewer"] : ["editor", "viewer"] as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r as Role]}</option>)}
               </select>
             </div>

@@ -1,0 +1,9 @@
+{
+  "_説明": "実写真の評価用データ。写真は eval/images/ に置き、Git には入れない（個人が写るため）。truth_count は人手で数えた正解人数。split は tune（しきい値調整用）と test（評価用）に分ける。",
+  "images": [
+    { "file": "images/small-group-01.jpg", "truth_count": 4, "split": "tune", "tags": ["少人数"] },
+    { "file": "images/crowd-01.jpg", "truth_count": 38, "split": "test", "tags": ["密集", "重なり"] },
+    { "file": "images/night-01.jpg", "truth_count": 12, "split": "test", "tags": ["暗所"] },
+    { "file": "images/field-wide-01.jpg", "truth_count": 21, "split": "test", "tags": ["小さく写った人物"] }
+  ]
+}

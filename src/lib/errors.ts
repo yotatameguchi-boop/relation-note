@@ -20,6 +20,14 @@ const MESSAGES: Record<string, string> = {
   upload_expired: "アップロードの期限が切れました。もう一度選び直してください。",
   upload_mismatch: "ファイルの形式またはサイズが申告と一致しません。",
   invalid_file: "対応していないファイルです。",
+  feature_disabled: "この機能は団体で有効になっていません。",
+  partner_not_found: "連携コードに該当する団体が見つかりません。",
+  partnership_exists: "この団体とはすでに連携中か、申請中です。",
+  partnership_inactive: "連携中の団体ではありません。",
+  no_valid_authorization: "選んだ項目・期限を含む有効な共有根拠がありません。",
+  share_not_active: "この共有は現在有効ではありません。",
+  invalid_fields: "項目を1つ以上選んでください。",
+  invalid_adjustment: "修正内容が正しくありません。画面を再読み込みしてください。",
 };
 
 export function toMessage(err: PgError, fallback = "処理に失敗しました。"): string {

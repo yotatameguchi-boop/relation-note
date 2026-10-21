@@ -3,14 +3,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 
-// 縮小後の長辺。人数検出の精度を実写真で確認してから調整する（Rekognition への直接送信は5MBまで）
-const MAX_EDGE = 2560;
+// 原則は元ファイルのまま送り、回転補正・メタデータ除去・縮小はサーバーで行う。
+// 15MB を超えるものだけ、ブラウザで縮小してから送る。
+const MAX_BYTES = 15 * 1024 * 1024;
+const MAX_EDGE = 4800;
 
 async function downscale(file: File): Promise<Blob> {
   if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error("JPEG / PNG / WebP の画像を選んでください。");
+  if (file.size <= MAX_BYTES) return file;
   const bmp = await createImageBitmap(file);
   const scale = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
-  if (scale === 1 && file.size <= 4.5 * 1024 * 1024) return file;
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bmp.width * scale);
   canvas.height = Math.round(bmp.height * scale);
@@ -44,7 +46,9 @@ export function PhotoUploader({ orgId, events, defaultEventId }: { orgId: string
         const done = await fetch(`/api/orgs/${orgId}/photos/${r.photoId}/complete`, { method: "POST" });
         const d = await done.json();
         if (!done.ok) throw new Error(d.error);
-        out.push(`✓ ${f.name}：解析待ちに登録しました`);
+        out.push(d.duplicateOf
+          ? `✓ ${f.name}：解析待ちに登録しました（同じ写真ファイルがすでに登録されています。写真ファイルの重複であり、写っている人物の重複判定ではありません）`
+          : `✓ ${f.name}：解析待ちに登録しました`);
       } catch (e) {
         out.push(`✗ ${f.name}：${e instanceof Error ? e.message : e}`);
       }
@@ -64,7 +68,10 @@ export function PhotoUploader({ orgId, events, defaultEventId }: { orgId: string
         </select>
         <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy} onChange={(e) => upload(e.target.files)} style={{ maxWidth: 320 }} />
       </div>
-      <p className="small muted" style={{ marginTop: 6 }}>長辺{MAX_EDGE}pxに縮小してから送信します。写真は非公開で保存され、保存期限を過ぎると画像だけ削除されます（人数の記録は残ります）。</p>
+      <p className="small muted" style={{ marginTop: 6 }}>
+        写真は非公開で保存されます。解析には向きを補正し、位置情報などのメタデータを除いた画像を使います。
+        保存期限を過ぎると画像だけ削除されます（人数の記録は残ります）。
+      </p>
       {log.length > 0 && <ul className="small">{log.map((l, i) => <li key={i}>{l}</li>)}</ul>}
     </div>
   );

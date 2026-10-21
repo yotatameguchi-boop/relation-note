@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireMembership, can, hasPerm } from "@/lib/auth";
+import { requireMembership, can, canManageSharing, getFeatures, hasPerm } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fmtDate } from "@/lib/format";
 import { Flash, Pager, TagChip } from "@/components/ui";
@@ -52,6 +52,7 @@ export default async function PeoplePage({ params, searchParams }: {
     return s ? `?${s}` : "";
   };
   const editor = can(m, "editor");
+  const sharing = (await getFeatures(orgId)).partner_sharing && canManageSharing(m);
 
   return (
     <>
@@ -114,6 +115,10 @@ export default async function PeoplePage({ params, searchParams }: {
             </select>
             <button name="action" value="tag_add" className="btn-secondary btn-small">タグを付ける</button>
             <button name="action" value="tag_remove" className="btn-secondary btn-small">タグを外す</button>
+            {sharing && <>
+              <button name="action" value="authorize" className="btn-secondary btn-small">共有根拠を記録</button>
+              <button name="action" value="share" className="btn-secondary btn-small">他団体へ共有</button>
+            </>}
             {hasPerm(m, "bulk_delete") && can(m, "admin") && (
               <button name="action" value="delete" className="btn-danger btn-small">一括削除</button>
             )}
