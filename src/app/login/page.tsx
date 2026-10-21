@@ -1,7 +1,7 @@
 import { Logo } from "@/components/Logo";
-import { signIn, signUp } from "./actions";
+import { resendConfirmation, signIn, signUp } from "./actions";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; mode?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; mode?: string; sent?: string; unconfirmed?: string; email?: string }> }) {
   const sp = await searchParams;
   const signup = sp.mode === "signup";
   return (
@@ -12,7 +12,19 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       </div>
       <div className="card">
         <h2 style={{ marginTop: 0 }}>{signup ? "アカウント作成" : "ログイン"}</h2>
+        {sp.sent && (
+          <div className="notice notice-ok">
+            {sp.email ? `${sp.email} に` : ""}確認メールを送信しました。メール内のリンクを開くと登録が完了します。
+            届かない場合は迷惑メールフォルダもご確認ください。
+          </div>
+        )}
         {sp.error && <div className="notice notice-danger">{sp.error}</div>}
+        {(sp.unconfirmed || sp.sent) && sp.email && (
+          <form action={resendConfirmation} style={{ marginBottom: 12 }}>
+            <input type="hidden" name="email" value={sp.email} />
+            <button className="btn-secondary btn-small">確認メールを再送する</button>
+          </form>
+        )}
         <form action={signup ? signUp : signIn}>
           <input type="hidden" name="next" value={sp.next ?? ""} />
           {signup && (
