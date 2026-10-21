@@ -4,9 +4,9 @@ import { fmtDateTime } from "@/lib/format";
 import { Pager } from "@/components/ui";
 
 const ACTION: Record<string, string> = {
-  "organization.create": "団体を作成", "organization.transfer_ownership": "所有権を移譲",
+  "organization.create": "組織を作成", "organization.transfer_ownership": "所有権を移譲",
   "invitation.create": "スタッフを招待", "invitation.revoke": "招待を取り消し",
-  "membership.join": "団体に参加", "membership.update": "権限を変更", "membership.remove": "スタッフを削除", "membership.leave": "団体から脱退",
+  "membership.join": "組織に参加", "membership.update": "権限を変更", "membership.remove": "スタッフを削除", "membership.leave": "組織から脱退",
   "person.merge": "人物を統合", "person.delete": "人物を削除", "person.bulk_delete": "人物を一括削除",
   "people.export": "人物を一括出力", "import.start": "CSV取り込みを開始", "submission.resolve": "回答を判断",
   "form_connection.rotate_secret": "連携の秘密を再発行", "photo.reanalyze": "写真を再解析", "photo.delete": "写真を削除",

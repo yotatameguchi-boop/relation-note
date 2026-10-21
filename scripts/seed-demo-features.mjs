@@ -1,5 +1,5 @@
-// ローカル開発用：団体間共有と写真解析 v2 のデモデータ（scripts/seed-dev.mjs の後に実行。本番では実行しない）
-//   - 連携相手のデモ団体を作り、両団体で機能フラグを有効にする
+// ローカル開発用：組織間共有と写真解析 v2 のデモデータ（scripts/seed-dev.mjs の後に実行。本番では実行しない）
+//   - 連携相手のデモ組織を作り、両組織で機能フラグを有効にする
 //   - 連携 → 共有根拠 → 共有（1人）まで済ませ、もう1人は根拠未記録のまま残す
 //   - 回転情報付きの写真を、本番と同じ前処理で登録して解析待ちにする（ワーカーが動いていれば1分以内に解析される）
 import { createClient } from "@supabase/supabase-js";
@@ -27,7 +27,7 @@ for (const org of [orgA, orgB]) {
   must(await admin.from("organization_features").upsert({ organization_id: org, partner_sharing: true, photo_pipeline_v2: true }));
 }
 
-// 連携（A が申請 → B が承認。デモでは同じオーナーが両方の団体に所属している）
+// 連携（A が申請 → B が承認。デモでは同じオーナーが両方の組織に所属している）
 const codeB = must(await user.from("organizations").select("partner_code").eq("id", orgB).single()).partner_code;
 const pid = must(await user.rpc("request_partnership", { org: orgA, code: codeB, msg: "合同イベントのボランティア調整のため" }));
 must(await user.rpc("respond_partnership", { partnership: pid, accept: true }));
@@ -40,7 +40,7 @@ must(await user.from("person_notes").insert({ organization_id: orgA, person_id: 
 
 const fields = ["display_name", "region", "interests", "skills", "tags", "activities"];
 must(await user.rpc("record_sharing_authorizations", {
-  org: orgA, person_ids: [taro], target: orgB, p_basis_type: "consent", p_basis_detail: "登録時の同意書に団体間共有の項目あり",
+  org: orgA, person_ids: [taro], target: orgB, p_basis_type: "consent", p_basis_detail: "登録時の同意書に組織間共有の項目あり",
   p_purpose: "合同イベントでのボランティア配置の調整", p_allowed_fields: fields,
   p_evidence_ref: "ボランティア登録同意書（2026年度・事務所保管）", p_confirmed_at: new Date().toISOString(),
   p_valid_until: new Date(Date.now() + 365 * 86400e3).toISOString(),

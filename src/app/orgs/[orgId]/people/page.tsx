@@ -117,7 +117,7 @@ export default async function PeoplePage({ params, searchParams }: {
             <button name="action" value="tag_remove" className="btn-secondary btn-small">タグを外す</button>
             {sharing && <>
               <button name="action" value="authorize" className="btn-secondary btn-small">共有根拠を記録</button>
-              <button name="action" value="share" className="btn-secondary btn-small">他団体へ共有</button>
+              <button name="action" value="share" className="btn-secondary btn-small">他組織へ共有</button>
             </>}
             {hasPerm(m, "bulk_delete") && can(m, "admin") && (
               <button name="action" value="delete" className="btn-danger btn-small">一括削除</button>

@@ -18,19 +18,19 @@ export default async function OrgLayout({ children, params }: { children: React.
   const features = await getFeatures(orgId);
   const sharingNav = features.partner_sharing
     ? [
-        ...(canManageSharing(m) || hasPerm(m, "view_shared") ? [{ href: `${base}/sharing`, label: "団体連携", exact: true }] : []),
-        ...(canManageSharing(m) ? [{ href: `${base}/sharing/outgoing`, label: "自団体から共有中" }] : []),
-        ...(hasPerm(m, "view_shared") ? [{ href: `${base}/sharing/received`, label: "他団体から共有された活動者" }] : []),
+        ...(canManageSharing(m) || hasPerm(m, "view_shared") ? [{ href: `${base}/sharing`, label: "組織連携", exact: true }] : []),
+        ...(canManageSharing(m) ? [{ href: `${base}/sharing/outgoing`, label: "自組織から共有中" }] : []),
+        ...(hasPerm(m, "view_shared") ? [{ href: `${base}/sharing/received`, label: "他組織から共有された活動者" }] : []),
       ]
     : [];
 
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand"><Link href="/orgs" className="logo" aria-label="RelationNote 団体の選択へ"><Logo size={30} wordSize={16} /></Link></div>
+        <div className="brand"><Link href="/orgs" className="logo" aria-label="RelationNote 組織の選択へ"><Logo size={30} wordSize={16} /></Link></div>
         <div className="small" style={{ margin: "0 10px 8px" }}>
           <strong>{m.organizationName}</strong>
-          <div className="muted org-switch">{ROLE_LABEL[m.role]}・<Link href="/orgs">団体を切り替え</Link></div>
+          <div className="muted org-switch">{ROLE_LABEL[m.role]}・<Link href="/orgs">組織を切り替え</Link></div>
         </div>
         <Nav
           sections={[
@@ -59,13 +59,13 @@ export default async function OrgLayout({ children, params }: { children: React.
                 { href: `${base}/photos`, label: "写真と人数推定" },
               ],
             },
-            ...(sharingNav.length ? [{ title: "団体間共有", items: sharingNav }] : []),
+            ...(sharingNav.length ? [{ title: "組織間共有", items: sharingNav }] : []),
             {
               title: "運用",
               items: [
                 { href: `${base}/jobs`, label: "処理状況" },
                 ...(admin ? [{ href: `${base}/members`, label: "スタッフと権限" }, { href: `${base}/audit`, label: "操作履歴" }] : []),
-                { href: `${base}/settings`, label: "団体設定・利用量" },
+                { href: `${base}/settings`, label: "組織設定・利用量" },
               ],
             },
           ]}
@@ -76,7 +76,7 @@ export default async function OrgLayout({ children, params }: { children: React.
       </aside>
       <main className="main">
         {m.status === "suspended" && (
-          <div className="notice notice-warn">この団体は利用停止中です。データの閲覧と出力のみ行えます。</div>
+          <div className="notice notice-warn">この組織は利用停止中です。データの閲覧と出力のみ行えます。</div>
         )}
         {warnings.map((w) => (
           <div key={w.key} className={`notice ${w.ratio >= 1 ? "notice-danger" : "notice-warn"}`}>

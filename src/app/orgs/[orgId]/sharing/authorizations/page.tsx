@@ -71,7 +71,7 @@ export default async function Authorizations({ params, searchParams }: {
         根拠が未記録・撤回済み・期限切れ、または共有する項目や期限が根拠の範囲外の場合は、共有を有効にできません。
       </div>
       {partners.length === 0 ? (
-        <div className="card muted">連携中の団体がありません。先に「団体連携」で連携してください。</div>
+        <div className="card muted">連携中の組織がありません。先に「組織連携」で連携してください。</div>
       ) : (
         <div className="card">
           <h2 style={{ marginTop: 0 }}>根拠を記録</h2>
@@ -84,7 +84,7 @@ export default async function Authorizations({ params, searchParams }: {
             {hidden}
             <PeoplePicker orgId={orgId} selected={selected} q={sp.q} />
             <div className="row" style={{ alignItems: "flex-end" }}>
-              <label className="inline-field" style={{ flex: 1 }}>共有先の団体<select name="target" required>{partners.map((p) => <option key={p.partner_id} value={p.partner_id}>{p.partner_name}</option>)}</select></label>
+              <label className="inline-field" style={{ flex: 1 }}>共有先の組織<select name="target" required>{partners.map((p) => <option key={p.partner_id} value={p.partner_id}>{p.partner_name}</option>)}</select></label>
               <label className="inline-field">根拠の種類<select name="basis_type">{Object.entries(BASIS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
               <label className="inline-field">確認日<input type="date" name="confirmed_at" required max={today} defaultValue={today} /></label>
               <label className="inline-field">有効期限（任意）<input type="date" name="valid_until" min={today} /></label>

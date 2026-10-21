@@ -20,7 +20,7 @@ export default async function ReceivedDetail({ params }: { params: Promise<{ org
   const title = (d.snapshot.display_name as string) || (d.snapshot.full_name as string) || "（氏名は共有されていません）";
   return (
     <>
-      <div className="spread"><h1><span className="shared-badge">他団体から共有</span> {title}</h1><Link href={`/orgs/${orgId}/sharing/received`}>← 一覧</Link></div>
+      <div className="spread"><h1><span className="shared-badge">他組織から共有</span> {title}</h1><Link href={`/orgs/${orgId}/sharing/received`}>← 一覧</Link></div>
       <SharingTabs orgId={orgId} current="received" manage={manage} view={view} />
       <div className="card shared-card">
         <p className="small">
@@ -33,7 +33,7 @@ export default async function ReceivedDetail({ params }: { params: Promise<{ org
         </tbody></table>
         <p className="small muted" style={{ marginTop: 10 }}>
           共有元が公開した時点の内容です（元の情報が最新とは限りません）。共有の目的の範囲で利用してください。
-          この情報は自団体の人物台帳には取り込まれず、編集・出力・再共有はできません。閲覧は記録されています。
+          この情報は自組織の人物台帳には取り込まれず、編集・出力・再共有はできません。閲覧は記録されています。
         </p>
       </div>
     </>

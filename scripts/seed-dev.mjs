@@ -1,5 +1,5 @@
 // ローカル開発用のデモデータ（本番では実行しない）。
-// .env.local の DEV_LOGIN_EMAIL / DEV_LOGIN_PASSWORD でオーナーアカウントを作り、サンプル団体を用意する。
+// .env.local の DEV_LOGIN_EMAIL / DEV_LOGIN_PASSWORD でオーナーアカウントを作り、サンプル組織を用意する。
 import { createClient } from "@supabase/supabase-js";
 
 // ENV_FILE で読み込む設定を切り替えられる（クラウドのデモ環境に入れる場合は .env.remote ＋ ALLOW_NON_LOCAL=1）
@@ -22,7 +22,7 @@ const { error: le } = await user.auth.signInWithPassword({ email, password });
 if (le) throw le;
 
 const must = (r) => { if (r.error) throw r.error; return r.data; };
-// やり直せるよう、前回のデモ団体は消してから作る
+// やり直せるよう、前回のデモ組織は消してから作る
 await admin.from("organizations").delete().eq("name", "みどり川クリーン会（デモ）");
 const org = must(await user.rpc("create_organization", { org_name: "みどり川クリーン会（デモ）" }));
 const tags = must(await user.from("tags").insert(

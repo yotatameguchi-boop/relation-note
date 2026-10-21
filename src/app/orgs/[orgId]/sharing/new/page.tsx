@@ -91,7 +91,7 @@ export default async function NewShare({ params, searchParams }: { params: Promi
       <h1>活動者の共有を設定</h1>
       <SharingTabs orgId={orgId} current="new" manage={manage} view={view} />
       <Flash sp={{ error: typeof sp.error === "string" ? sp.error : undefined }} />
-      {partners.length === 0 ? <div className="card muted">連携中の団体がありません。</div> : (
+      {partners.length === 0 ? <div className="card muted">連携中の組織がありません。</div> : (
         <>
           <form className="row card" style={{ padding: 10 }}>
             {people.map((p) => <input key={p} type="hidden" name="people" value={p} />)}

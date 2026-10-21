@@ -1,5 +1,5 @@
-// ローカル・検証環境用：団体の機能フラグを切り替える（本番の実データ団体では実行しない）
-//   node scripts/set-feature.mjs <団体ID または 団体名> <partner_sharing|photo_pipeline_v2|photo_tiling> <on|off>
+// ローカル・検証環境用：組織の機能フラグを切り替える（本番の実データ組織では実行しない）
+//   node scripts/set-feature.mjs <組織ID または 組織名> <partner_sharing|photo_pipeline_v2|photo_tiling> <on|off>
 import { createClient } from "@supabase/supabase-js";
 
 // ENV_FILE で読み込む設定を切り替えられる（クラウドのデモ環境に入れる場合は .env.remote ＋ ALLOW_NON_LOCAL=1）

@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  *   Authorization: Bearer <接続ごとの秘密>
  *   本文: { "response_id": "...", "submitted_at": "ISO8601", "answers": { "氏名": "...", ... } }
  *   （answers が無ければ本文全体を回答原文として扱う）
- * 保存先の団体は接続設定から決まり、送信側からは指定できない。
+ * 保存先の組織は接続設定から決まり、送信側からは指定できない。
  */
 export async function POST(req: Request, { params }: { params: Promise<{ connectionId: string }> }) {
   const { connectionId } = await params;

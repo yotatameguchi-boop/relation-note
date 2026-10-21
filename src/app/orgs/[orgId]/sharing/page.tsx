@@ -17,7 +17,7 @@ async function request(fd: FormData) {
   const { error } = await supabase.rpc("request_partnership", { org: orgId, code: String(fd.get("code") ?? ""), msg: String(fd.get("message") ?? "") });
   if (error) redirect(back(orgId, `error=${encodeURIComponent(toMessage(error))}`));
   revalidatePath(`/orgs/${orgId}/sharing`);
-  redirect(back(orgId, `ok=${encodeURIComponent("連携を申請しました。相手の団体の承認を待っています。")}`));
+  redirect(back(orgId, `ok=${encodeURIComponent("連携を申請しました。相手の組織の承認を待っています。")}`));
 }
 
 async function respond(fd: FormData) {
@@ -57,24 +57,24 @@ export default async function Partners({ params, searchParams }: { params: Promi
 
   return (
     <>
-      <h1>団体連携</h1>
+      <h1>組織連携</h1>
       <SharingTabs orgId={orgId} current="partners" manage={manage} view={view} />
       <Flash sp={sp} />
       <div className="notice notice-info small">
         連携を承認しても、活動者の情報は共有されません。共有は活動者ごとに、共有根拠を記録したうえで項目と期限を選んで設定します。
-        共有は一方向で、相手から自団体への共有は相手が別に設定します。受け取った情報を第三者の団体へ再共有することはできません。
+        共有は一方向で、相手から自組織への共有は相手が別に設定します。受け取った情報を第三者の組織へ再共有することはできません。
       </div>
       {manage && (
         <div className="grid grid-2">
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>自団体の連携コード</h2>
+            <h2 style={{ marginTop: 0 }}>自組織の連携コード</h2>
             <p><code style={{ fontSize: 16 }}>{org?.partner_code}</code></p>
-            <p className="small muted">連携したい相手の団体にこのコードを伝え、相手から申請してもらうこともできます。</p>
+            <p className="small muted">連携したい相手の組織にこのコードを伝え、相手から申請してもらうこともできます。</p>
           </div>
           <form action={request} className="card">
             {hidden}
             <h2 style={{ marginTop: 0 }}>連携を申請</h2>
-            <label className="field">相手の団体の連携コード<input name="code" required maxLength={20} autoComplete="off" /></label>
+            <label className="field">相手の組織の連携コード<input name="code" required maxLength={20} autoComplete="off" /></label>
             <label className="field">メッセージ（任意）<input name="message" maxLength={500} placeholder="例：合同清掃活動のボランティア調整のため" /></label>
             <button>申請する</button>
           </form>
@@ -83,14 +83,14 @@ export default async function Partners({ params, searchParams }: { params: Promi
       <h2>連携の一覧</h2>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>相手の団体</th><th>状態</th><th>経緯</th><th className="num">自団体→相手</th><th className="num">相手→自団体</th><th /></tr></thead>
+          <thead><tr><th>相手の組織</th><th>状態</th><th>経緯</th><th className="num">自組織→相手</th><th className="num">相手→自組織</th><th /></tr></thead>
           <tbody>
             {partners.length === 0 && <tr><td colSpan={6} className="muted">連携はまだありません。</td></tr>}
             {partners.map((p) => (
               <tr key={p.id}>
                 <td><strong>{p.partner_name}</strong>{p.message && <div className="small muted">{p.message}</div>}</td>
                 <td><span className={`badge ${STATUS[p.status]?.[1] ?? ""}`}>{STATUS[p.status]?.[0] ?? p.status}</span></td>
-                <td className="small">{p.direction === "outgoing" ? "自団体から申請" : "相手から申請"}・{fmtDateTime(p.requested_at)}
+                <td className="small">{p.direction === "outgoing" ? "自組織から申請" : "相手から申請"}・{fmtDateTime(p.requested_at)}
                   {p.responded_at && <div>応答 {fmtDateTime(p.responded_at)}</div>}{p.dissolved_at && <div>終了 {fmtDateTime(p.dissolved_at)}</div>}</td>
                 <td className="num">{p.outgoing_live}人</td>
                 <td className="num">{p.incoming_live}人</td>

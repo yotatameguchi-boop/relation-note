@@ -5,11 +5,11 @@
 //
 //   実写真（ローカル環境で、実際の人物検出APIを設定したワーカーを使う）
 //     node scripts/eval-counting.mts real eval/dataset.json [--out eval/reports/real.md]
-//       - 写真をローカルの評価用団体へアップロードし、本番と同じ前処理・ワーカーで解析する
+//       - 写真をローカルの評価用組織へアップロードし、本番と同じ前処理・ワーカーで解析する
 //       - DETECTOR=mock のワーカーでは実行しない（--allow-mock で動作確認だけはできるが、精度の数値として扱わない）
 //
 //   しきい値の調整（保存済みの検出枠を使うので外部APIを呼ばない）
-//     node scripts/eval-counting.mts sweep <評価用団体ID> eval/dataset.json
+//     node scripts/eval-counting.mts sweep <評価用組織ID> eval/dataset.json
 //       - split が "tune" の写真だけでしきい値を選び、"test" の写真で評価する
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -161,12 +161,12 @@ async function real(manifest: string, out?: string, allowMock = false) {
   const { preprocessPhoto, analysisMeta } = await import("../src/lib/photo/preprocess.ts");
   const ds = JSON.parse(readFileSync(manifest, "utf8")) as Dataset;
   const base = dirname(resolve(manifest));
-  // 評価専用の団体（本番データとは別）
+  // 評価専用の組織（本番データとは別）
   const name = `評価用（人数カウント ${new Date().toISOString().slice(0, 16)}）`;
   const { data: org, error } = await db.from("organizations").insert({ name, plan_id: "large" }).select("id").single();
   if (error) throw error;
   await db.from("organization_features").upsert({ organization_id: org.id, photo_pipeline_v2: true, photo_tiling: process.argv.includes("--tiling") });
-  console.error(`評価用団体 ${org.id} に ${ds.images.length}枚をアップロードします`);
+  console.error(`評価用組織 ${org.id} に ${ds.images.length}枚をアップロードします`);
   const items: { id: string; job: string; img: Dataset["images"][number] }[] = [];
   for (const img of ds.images) {
     const buf = readFileSync(resolve(base, img.file));
@@ -215,7 +215,7 @@ function report(rows: Row[], provider: string, orgId: string, out?: string, mock
     "",
     mock ? "> **DETECTOR=mock で実行したため、以下は動作確認であり精度の数値ではありません。**\n" : "",
     `- 検出：${provider}`,
-    `- 評価用団体：${orgId}（スタッフの修正時間は、この団体の写真を画面で確定した後に \`report\` で再集計すると入ります）`,
+    `- 評価用組織：${orgId}（スタッフの修正時間は、この組織の写真を画面で確定した後に \`report\` で再集計すると入ります）`,
     `- 評価用（test）とします。しきい値の調整は tune 区分だけで行ってください。`,
     "",
     "## test 区分",

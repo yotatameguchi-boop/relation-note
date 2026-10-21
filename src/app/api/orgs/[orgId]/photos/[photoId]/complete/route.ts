@@ -6,8 +6,8 @@ import { analysisMeta, preprocessPhoto, PhotoValidationError } from "@/lib/photo
 
 export const runtime = "nodejs";
 
-// アップロード完了後、サーバーで実ファイルの形式・容量・縦横サイズ・保存先の団体を確認してから解析ジョブを登録する。
-// photo_pipeline_v2 が有効な団体では、正立・メタデータ除去・縮小した解析用画像（と、必要なら分割画像）を作る。
+// アップロード完了後、サーバーで実ファイルの形式・容量・縦横サイズ・保存先の組織を確認してから解析ジョブを登録する。
+// photo_pipeline_v2 が有効な組織では、正立・メタデータ除去・縮小した解析用画像（と、必要なら分割画像）を作る。
 export async function POST(_req: Request, { params }: { params: Promise<{ orgId: string; photoId: string }> }) {
   const { orgId, photoId } = await params;
   const supabase = await createClient();

@@ -21,7 +21,7 @@ export default async function SharingAudit({ params }: { params: Promise<{ orgId
       .or(`source_organization_id.eq.${orgId},target_organization_id.eq.${orgId}`).order("created_at", { ascending: false }).limit(300),
     partnerNames(orgId),
   ]);
-  const orgName = (id: string | null) => (id === orgId ? "自団体" : id ? names.get(id) ?? "他団体" : "—");
+  const orgName = (id: string | null) => (id === orgId ? "自組織" : id ? names.get(id) ?? "他組織" : "—");
   return (
     <>
       <h1>共有履歴</h1>
@@ -29,7 +29,7 @@ export default async function SharingAudit({ params }: { params: Promise<{ orgId
       <p className="small muted">連携・根拠・共有の設定変更と、共有された情報の閲覧を記録しています。共有データの本文は記録しません。</p>
       <div className="table-wrap">
         <table className="small">
-          <thead><tr><th>日時</th><th>操作した団体・スタッフ</th><th>操作</th><th>共有元→共有先</th><th>詳細</th></tr></thead>
+          <thead><tr><th>日時</th><th>操作した組織・スタッフ</th><th>操作</th><th>共有元→共有先</th><th>詳細</th></tr></thead>
           <tbody>
             {(logs ?? []).map((l) => (
               <tr key={l.id}>

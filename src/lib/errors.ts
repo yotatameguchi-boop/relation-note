@@ -11,7 +11,7 @@ const MESSAGES: Record<string, string> = {
   "quota_exceeded:storage": "写真の保存容量の上限に達しています。",
   invitation_invalid: "招待が無効か、期限切れです。",
   invitation_email_mismatch: "招待されたメールアドレスでログインしてください。",
-  confirm_mismatch: "確認用の団体名が一致しません。",
+  confirm_mismatch: "確認用の組織名が一致しません。",
   invalid_role: "その権限は設定できません。",
   batch_already_started: "この取り込みはすでに開始されています。",
   already_resolved: "この回答はすでに処理済みです。",
@@ -20,10 +20,10 @@ const MESSAGES: Record<string, string> = {
   upload_expired: "アップロードの期限が切れました。もう一度選び直してください。",
   upload_mismatch: "ファイルの形式またはサイズが申告と一致しません。",
   invalid_file: "対応していないファイルです。",
-  feature_disabled: "この機能は団体で有効になっていません。",
-  partner_not_found: "連携コードに該当する団体が見つかりません。",
-  partnership_exists: "この団体とはすでに連携中か、申請中です。",
-  partnership_inactive: "連携中の団体ではありません。",
+  feature_disabled: "この機能は組織で有効になっていません。",
+  partner_not_found: "連携コードに該当する組織が見つかりません。",
+  partnership_exists: "この組織とはすでに連携中か、申請中です。",
+  partnership_inactive: "連携中の組織ではありません。",
   no_valid_authorization: "選んだ項目・期限を含む有効な共有根拠がありません。",
   share_not_active: "この共有は現在有効ではありません。",
   invalid_fields: "項目を1つ以上選んでください。",
@@ -32,7 +32,8 @@ const MESSAGES: Record<string, string> = {
 
 export function toMessage(err: PgError, fallback = "処理に失敗しました。"): string {
   if (!err) return fallback;
-  if (err.hint && !/^(role|permission) /.test(err.hint)) return err.hint;
+  // DB 側のメッセージは旧表記（団体）のものがあるので、画面の表記（組織）にそろえる
+  if (err.hint && !/^(role|permission) /.test(err.hint)) return err.hint.replace(/団体/g, "組織");
   const key = err.message ?? "";
   if (MESSAGES[key]) return MESSAGES[key];
   if (err.code === "42501" || /row-level security/.test(key)) return MESSAGES.forbidden;

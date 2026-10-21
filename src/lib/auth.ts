@@ -25,7 +25,7 @@ export type Membership = {
 };
 
 /**
- * 団体IDは URL から来るが、それだけでは信用しない。
+ * 組織IDは URL から来るが、それだけでは信用しない。
  * ログイン中スタッフの memberships を（RLS 越しに）読み、所属と権限を確認する。
  */
 export const getMembership = cache(async (orgId: string): Promise<Membership | null> => {

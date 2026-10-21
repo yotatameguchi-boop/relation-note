@@ -42,7 +42,7 @@ export const GRANT_STATE_LABEL: Record<string, string> = {
   authorization_missing: "根拠なし",
   authorization_mismatch: "根拠と範囲が不一致",
   not_published: "未公開",
-  organization_inactive: "団体が無効",
+  organization_inactive: "組織が無効",
 };
 
 export type Partnership = {
@@ -57,7 +57,7 @@ export async function listPartnerships(orgId: string): Promise<Partnership[]> {
   return (data ?? []) as Partnership[];
 }
 
-/** 連携・申請の相手の団体名（組織テーブルは自団体しか読めないため） */
+/** 連携・申請の相手の組織名（組織テーブルは自組織しか読めないため） */
 export async function partnerNames(orgId: string) {
   const ps = await listPartnerships(orgId);
   return new Map(ps.map((p) => [p.partner_id, p.partner_name]));

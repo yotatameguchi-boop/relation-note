@@ -28,13 +28,13 @@ export default async function OrgsPage({ searchParams }: { searchParams: Promise
     <div className="auth-wrap" style={{ maxWidth: 640 }}>
       <div className="auth-hero" style={{ textAlign: "left" }}><Logo size={36} wordSize={20} /></div>
       <div className="spread">
-        <h1>団体を選ぶ</h1>
+        <h1>組織を選ぶ</h1>
         <form action="/auth/signout" method="post"><button className="btn-secondary btn-small">ログアウト</button></form>
       </div>
       <p className="muted small">{user.email} でログイン中</p>
       {sp.error && <div className="notice notice-danger">{sp.error}</div>}
       <div className="card">
-        {orgs.length === 0 && <p className="muted">所属している団体はまだありません。招待リンクを受け取るか、新しく団体を作成してください。</p>}
+        {orgs.length === 0 && <p className="muted">所属している組織はまだありません。招待リンクを受け取るか、新しく組織を作成してください。</p>}
         {orgs.map((o) => (
           <div key={o.id} className="spread" style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
             <Link href={`/orgs/${o.id}`}><strong>{o.name}</strong></Link>
@@ -46,10 +46,10 @@ export default async function OrgsPage({ searchParams }: { searchParams: Promise
         ))}
       </div>
       <div className="card">
-        <h2 style={{ marginTop: 0 }}>新しい団体を作成</h2>
+        <h2 style={{ marginTop: 0 }}>新しい組織を作成</h2>
         <p className="small muted">作成したあなたがオーナーになります。標準プラン（月額4,980円・税別の仮案）の利用枠が適用されます。</p>
         <form action={createOrg} className="row">
-          <input name="name" required maxLength={120} placeholder="団体名" style={{ flex: 1 }} />
+          <input name="name" required maxLength={120} placeholder="組織名" style={{ flex: 1 }} />
           <button type="submit">作成</button>
         </form>
       </div>

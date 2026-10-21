@@ -31,8 +31,8 @@ async function destroy(fd: FormData) {
   // オーナー確認と名前確認を先に（実際の削除はRPCが再確認する）
   const { data: isOwner } = await supabase.rpc("has_role", { org: orgId, min_role: "owner" });
   const { data: org } = await supabase.from("organizations").select("name").eq("id", orgId).maybeSingle();
-  if (!isOwner || org?.name !== confirm) redirect(`/orgs/${orgId}/settings?error=${encodeURIComponent(isOwner ? "確認用の団体名が一致しません。" : "この操作を行う権限がありません。")}`);
-  // 写真・出力ファイル（団体IDフォルダ配下）を削除してから団体を削除
+  if (!isOwner || org?.name !== confirm) redirect(`/orgs/${orgId}/settings?error=${encodeURIComponent(isOwner ? "確認用の組織名が一致しません。" : "この操作を行う権限がありません。")}`);
+  // 写真・出力ファイル（組織IDフォルダ配下）を削除してから組織を削除
   const admin = createAdminClient();
   for (const bucket of ["photos", "exports"]) {
     for (;;) {
@@ -65,7 +65,7 @@ export default async function Settings({ params, searchParams }: { params: Promi
   const owner = m.role === "owner";
   return (
     <>
-      <h1>団体設定・利用量</h1>
+      <h1>組織設定・利用量</h1>
       <Flash sp={sp} />
       <div className="card">
         <div className="spread"><h2 style={{ margin: 0 }}>{plan.name}</h2>
@@ -88,20 +88,20 @@ export default async function Settings({ params, searchParams }: { params: Promi
       <div className="card">
         <h2 style={{ marginTop: 0 }}>機能の有効化状況</h2>
         <table className="small"><tbody>
-          <tr><th>団体間の連携・活動者データ共有</th><td>{features.partner_sharing ? <span className="badge badge-ok">有効</span> : <span className="badge">無効</span>}</td></tr>
+          <tr><th>組織間の連携・活動者データ共有</th><td>{features.partner_sharing ? <span className="badge badge-ok">有効</span> : <span className="badge">無効</span>}</td></tr>
           <tr><th>写真解析 v2（向きの補正・重複の整理・修正UI）</th><td>{features.photo_pipeline_v2 ? <span className="badge badge-ok">有効</span> : <span className="badge">無効</span>}</td></tr>
           <tr><th>写真の領域分割解析（評価中）</th><td>{features.photo_tiling ? <span className="badge badge-warn">有効（評価中）</span> : <span className="badge">無効</span>}</td></tr>
           {apiCalls && <tr><th>直近31日の外部API呼び出し（人物検出）</th><td>{calls}回（利用枠の「写真解析」枚数とは別に記録）</td></tr>}
         </tbody></table>
-        <p className="small muted">機能の有効化は運営側で行います。実データで使う前に検証用の団体で確認します。</p>
+        <p className="small muted">機能の有効化は運営側で行います。実データで使う前に検証用の組織で確認します。</p>
       </div>
 
       <form action={save} className="card">
         <input type="hidden" name="orgId" value={orgId} />
-        <h2 style={{ marginTop: 0 }}>団体設定</h2>
+        <h2 style={{ marginTop: 0 }}>組織設定</h2>
         {!owner && <p className="notice notice-info small">変更はオーナーのみ行えます。</p>}
         <fieldset disabled={!owner} style={{ border: 0, padding: 0, margin: 0 }}>
-          <label className="field">団体名<input name="name" defaultValue={org.name} required /></label>
+          <label className="field">組織名<input name="name" defaultValue={org.name} required /></label>
           <h3>「関係人口」の定義</h3>
           <div className="row">
             <label className="inline-field">対象期間（日）：この期間に参加・応募した人物を関係人口とする<input type="number" name="relation_window_days" min={1} max={3650} defaultValue={org.relation_window_days} /></label>
@@ -116,7 +116,7 @@ export default async function Settings({ params, searchParams }: { params: Promi
       {owner && (
         <form action={destroy} className="card" style={{ borderColor: "var(--danger)" }}>
           <input type="hidden" name="orgId" value={orgId} />
-          <h2 style={{ marginTop: 0, color: "var(--danger)" }}>団体の削除</h2>
+          <h2 style={{ marginTop: 0, color: "var(--danger)" }}>組織の削除</h2>
           <p className="small">人物・回答・イベント・写真を含むすべてのデータを削除します。元に戻せません。必要なデータは先に出力してください。</p>
           <div className="row">
             <input name="confirm" placeholder={`確認のため「${org.name}」と入力`} required style={{ flex: 1 }} />

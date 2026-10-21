@@ -40,7 +40,7 @@ export default async function PersonPage({ params, searchParams }: {
           partnerNames(orgId),
         ]);
         const named = <T extends { target_organization_id: string }>(rows: T[] | null) =>
-          (rows ?? []).map((r) => ({ ...r, organizations: { name: names.get(r.target_organization_id) ?? "（連携していない団体）" } }));
+          (rows ?? []).map((r) => ({ ...r, organizations: { name: names.get(r.target_organization_id) ?? "（連携していない組織）" } }));
         return { auths: named(auths.data), grants: named(grants.data) };
       })()
     : null;
@@ -207,7 +207,7 @@ export default async function PersonPage({ params, searchParams }: {
       {sharing && (
         <div className="card">
           <div className="spread">
-            <h2 style={{ marginTop: 0 }}>他団体への共有</h2>
+            <h2 style={{ marginTop: 0 }}>他組織への共有</h2>
             <Link className="btn btn-secondary btn-small" href={`/orgs/${orgId}/sharing/new?people=${personId}`}>共有を設定</Link>
           </div>
           <p className="small muted">共有先には、公開した時点の許可された項目だけが見えます。この画面で情報を編集しても、共有内容は自動では変わりません。</p>

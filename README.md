@@ -10,7 +10,7 @@
 | 設計書 | 実装 |
 | --- | --- |
 | 画面・業務API | Next.js 16（App Router / Server Actions / Route Handlers）・TypeScript |
-| DB・団体分離 | Supabase PostgreSQL。全主要テーブルに `organization_id`、外部キーにも団体IDを含め、RLS で参照・追加・更新・削除を制御 |
+| DB・組織分離 | Supabase PostgreSQL。全主要テーブルに `organization_id`、外部キーにも組織IDを含め、RLS で参照・追加・更新・削除を制御 |
 | 認証・権限 | Supabase Auth ＋ `memberships`（オーナー／管理者／編集者／閲覧者 ＋ 一括出力・一括削除・人物統合・権限変更の個別権限） |
 | 写真保存 | Supabase Storage の非公開バケット。アップロードは期限付きURL、閲覧は所属メンバーのみ期限付きURL |
 | 非同期処理 | Supabase Queues（pgmq）＋ Edge Function `process-jobs` ＋ Supabase Cron（毎分起動） |
@@ -33,7 +33,7 @@ supabase status -o env   # 値を .env.local に転記（.env.example 参照）
 cp supabase/functions/.env.example supabase/functions/.env   # WORKER_SECRET を設定
 supabase functions serve --env-file supabase/functions/.env --no-verify-jwt   # ワーカー
 ./scripts/setup-local-cron.sh   # Cron から毎分ワーカーを呼ぶための Vault 登録
-node scripts/seed-dev.mjs       # デモ団体とサンプルデータ（任意）
+node scripts/seed-dev.mjs       # デモ組織とサンプルデータ（任意）
 npm run dev                     # http://localhost:3080
 ```
 
@@ -48,12 +48,12 @@ npm test
 
 ローカルの Supabase が起動している必要があります。設計書 §16 の受け入れ条件のうち、自動で確かめられるものを網羅しています。
 
-- 別団体のデータを API・DB・ストレージから取得・変更できない（他団体IDでの登録、外部キーでの越境、organization_id の付け替え、他団体の写真・出力ファイル、ワーカー専用関数）
+- 別組織のデータを API・DB・ストレージから取得・変更できない（他組織IDでの登録、外部キーでの越境、organization_id の付け替え、他組織の写真・出力ファイル、ワーカー専用関数）
 - 退会・権限変更が即座に反映される／最後のオーナーは削除・脱退できない
 - 同じ回答・ジョブを再送しても二重登録されない（回答ID・原文ハッシュ、Webhook 再送、解析結果の保存の繰り返し、同じ写真のジョブ）
 - 名寄せが曖昧な人物（連絡先だけ一致、氏名だけ一致）を自動統合しない
 - 推定人数と確定人数を別に保存し、写真人数を参加人数・実参加者数に合算しない
-- 利用上限到達時は新規処理を止め（CSV は保留）、既存データは閲覧できる／停止中の団体は閲覧のみ
+- 利用上限到達時は新規処理を止め（CSV は保留）、既存データは閲覧できる／停止中の組織は閲覧のみ
 - 失敗ジョブの再試行・隔離・再実行、隔離分は利用枠に計上しない
 
 ## 名寄せのルール（§4.2）
@@ -72,7 +72,7 @@ npm test
 - イベント参加人数 = スタッフ確定値があればそれ、なければ「参加確認済みの記録＋匿名参加者」
 - 延べ参加人数 = 期間内のイベント参加人数の合計
 - 実参加者数 = 参加確認済みの人物の重複除外（匿名参加者は含められない）
-- 継続参加者数・関係人口 = 団体設定の回数・期間で判定
+- 継続参加者数・関係人口 = 組織設定の回数・期間で判定
 - 写真の人数はイベントごとの最大値を参考表示するだけで、合算も自動転記もしない
 
 ## デモ環境（公開中）
@@ -93,7 +93,7 @@ npm test
 4. Vercel に Next.js をデプロイし、`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` / `NEXT_PUBLIC_APP_URL` を設定
 5. Supabase Auth のメール送信（SMTP）とリダイレクトURLを本番ドメインに設定
 
-## 団体間の連携・活動者データ共有（機能フラグ `partner_sharing`）
+## 組織間の連携・活動者データ共有（機能フラグ `partner_sharing`）
 
 - 連携（申請・承認・拒否・解除）と、活動者ごとの共有許可は別管理。連携の承認だけでは何も見えない
 - 共有は一方向・再共有不可。共有先は共有元の `people` を一切読めず、公開済みスナップショット（`person_share_versions`）を DB 関数経由でだけ閲覧する
@@ -106,7 +106,7 @@ npm test
 
 ## 写真の人数カウント強化（機能フラグ `photo_pipeline_v2`、領域分割は `photo_tiling`）
 
-1. 検証：実際の形式・容量・縦横サイズ（sharp）、団体と利用枠
+1. 検証：実際の形式・容量・縦横サイズ（sharp）、組織と利用枠
 2. 解析用画像：EXIF の回転を反映して正立、位置情報などのメタデータを除去、長辺2048pxに縮小。座標の対応（`analysis_meta`）を記録。元ファイルの座標へは `uprightToRaw` で戻せる
 3. 検出：プロバイダー境界（`_shared/detector.ts`）。人物クラスの枠のみ、顔検出は使わない
 4. 整理：`_shared/counting.ts`。同じ解析内はほぼ同一の枠（IoU≥0.9）だけを重複とし、全体⇔領域の間は IoU≥0.55＋境界の包含判定。件数は単純加算しない
@@ -124,7 +124,7 @@ npm test
 ```bash
 node scripts/eval-counting.mts synthetic --out eval/reports/synthetic.md   # 合成データ（実写真の精度ではない）
 node scripts/eval-counting.mts real eval/dataset.json                     # 実写真（実際の検出APIを設定したワーカーが必要）
-node scripts/eval-counting.mts sweep <評価用団体ID> eval/dataset.json       # tune で調整し test で評価（API呼び出しなし）
+node scripts/eval-counting.mts sweep <評価用組織ID> eval/dataset.json       # tune で調整し test で評価（API呼び出しなし）
 ```
 
 **実写真での精度評価は未実施**（評価用写真と検出APIの認証情報がないため）。`eval/reports/synthetic-2026-10-22.md` は合成データでのアルゴリズム比較で、
@@ -134,14 +134,14 @@ node scripts/eval-counting.mts sweep <評価用団体ID> eval/dataset.json      
 ### 機能フラグの切り替え（ローカル・検証環境のみ）
 
 ```bash
-node scripts/set-feature.mjs "<団体名またはID>" partner_sharing on
-node scripts/set-feature.mjs "<団体名またはID>" photo_pipeline_v2 on
-node scripts/set-feature.mjs "<団体名またはID>" photo_tiling on
+node scripts/set-feature.mjs "<組織名またはID>" partner_sharing on
+node scripts/set-feature.mjs "<組織名またはID>" photo_pipeline_v2 on
+node scripts/set-feature.mjs "<組織名またはID>" photo_tiling on
 ```
 
 ## 未実施・未確定（設計書 §17 ほか）
 
-- 団体間共有：実データでの有効化・本人同意の取得フロー（アプリ内）・共有データの保存期間は未実施／未確定
+- 組織間共有：実データでの有効化・本人同意の取得フロー（アプリ内）・共有データの保存期間は未実施／未確定
 - **Rekognition の実写真評価は未実施**（AWS 認証情報がないため）。少人数・混雑・暗所・重なりの実写真で、正解人数との誤差と修正時間を測ってから採用を決める。縮小率（現在は長辺2560px）もその結果で決める
 - 課金・契約（決済連携、プラン変更の申し込み、解約時の出力猶予・削除）は未実装。プランと利用枠は DB の `plans` で管理し、変更はサービスロールのみ
 - 招待はリンクを画面に表示する方式で、メール送信はしていない

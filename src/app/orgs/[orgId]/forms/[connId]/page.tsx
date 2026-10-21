@@ -45,7 +45,7 @@ export default async function ConnectionPage({ params, searchParams }: {
       {c.kind === "webhook" && (
         <div className="card">
           <h2 style={{ marginTop: 0 }}>外部フォームからの自動連携</h2>
-          <p className="small">次のURLへ、回答ごとに JSON を POST してください。保存先の団体は接続設定から決まります。</p>
+          <p className="small">次のURLへ、回答ごとに JSON を POST してください。保存先の組織は接続設定から決まります。</p>
           <pre>{`POST ${env.appUrl}/api/forms/${connId}/webhook
 Authorization: Bearer <送信用の秘密>
 Content-Type: application/json

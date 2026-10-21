@@ -14,7 +14,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   });
   if (error) return NextResponse.json({ error: toMessage(error) }, { status: error.message?.startsWith("quota") ? 409 : 400 });
   const { photo_id, path } = data as { photo_id: string; path: string };
-  // 予約はユーザー権限で成功している（団体・権限確認済み）ので、URL発行だけサービスロールで行う
+  // 予約はユーザー権限で成功している（組織・権限確認済み）ので、URL発行だけサービスロールで行う
   const { data: signed, error: sErr } = await createAdminClient().storage.from("photos").createSignedUploadUrl(path);
   if (sErr) return NextResponse.json({ error: "アップロードURLを発行できませんでした。" }, { status: 500 });
   return NextResponse.json({ photoId: photo_id, path, token: signed.token, signedUrl: signed.signedUrl });

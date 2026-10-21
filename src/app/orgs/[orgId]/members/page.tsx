@@ -87,7 +87,7 @@ export default async function Members({ params, searchParams }: { params: Promis
         </div>
       )}
       <div className="card small">
-        <strong>権限の目安</strong>：オーナー＝団体設定・契約・所有権移譲・団体削除／管理者＝スタッフ招待・通常の権限管理・業務データ管理／
+        <strong>権限の目安</strong>：オーナー＝組織設定・契約・所有権移譲・組織削除／管理者＝スタッフ招待・通常の権限管理・業務データ管理／
         編集者＝人物・イベント・写真の登録と編集／閲覧者＝業務データの閲覧。
         一括出力・一括削除・人物統合・権限変更は、役割とは別に個別に付与します。
       </div>

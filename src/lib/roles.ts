@@ -15,8 +15,8 @@ export const PERMISSION_LABEL: Record<Permission, string> = {
   bulk_delete: "一括削除",
   merge_people: "人物統合",
   manage_permissions: "権限変更",
-  manage_sharing: "団体間共有の設定",
-  view_shared: "他団体からの共有の閲覧",
+  manage_sharing: "組織間共有の設定",
+  view_shared: "他組織からの共有の閲覧",
 };
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABEL) as Permission[];

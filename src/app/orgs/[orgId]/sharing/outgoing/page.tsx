@@ -35,7 +35,7 @@ export default async function Outgoing({ params, searchParams }: { params: Promi
   const soon = nowMs() + 14 * 86400e3;
   return (
     <>
-      <h1>自団体から共有中の活動者</h1>
+      <h1>自組織から共有中の活動者</h1>
       <SharingTabs orgId={orgId} current="outgoing" manage={manage} view={view} />
       <Flash sp={sp} />
       <form action={stop}>

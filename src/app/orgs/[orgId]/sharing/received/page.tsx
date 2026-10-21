@@ -20,10 +20,10 @@ export default async function Received({ params, searchParams }: { params: Promi
   const rows = (data ?? []) as Row[];
   return (
     <>
-      <h1>他団体から共有された活動者</h1>
+      <h1>他組織から共有された活動者</h1>
       <SharingTabs orgId={orgId} current="received" manage={manage} view={view} />
       <div className="notice notice-info small">
-        ここに表示されるのは、他団体が共有を許可した項目だけです。自団体の人物台帳とは別に管理され、編集・取り込み・CSV出力・第三者への再共有はできません。
+        ここに表示されるのは、他組織が共有を許可した項目だけです。自組織の人物台帳とは別に管理され、編集・取り込み・CSV出力・第三者への再共有はできません。
         共有が停止・期限切れ・連携解除になると表示されなくなります。
       </div>
       <form className="row" style={{ marginBottom: 10 }}>
