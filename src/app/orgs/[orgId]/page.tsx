@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireMembership } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { fmtDate, fmtNum } from "@/lib/format";
+import { fmtDate, fmtNum, todayJst } from "@/lib/format";
 
 type EventRow = {
   id: string; title: string; starts_at: string; attended_records: number; applied_records: number;
@@ -30,9 +30,10 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
   const { orgId } = await params;
   const sp = await searchParams;
   await requireMembership(orgId);
-  const today = new Date();
-  const defFrom = new Date(today.getFullYear(), today.getMonth() - 11, 1).toISOString().slice(0, 10);
-  const defTo = today.toISOString().slice(0, 10);
+  // 既定の期間は日本時間で「12か月前の月初〜今日」
+  const defTo = todayJst();
+  const [y, mo] = defTo.split("-").map(Number);
+  const defFrom = new Date(Date.UTC(y, mo - 1 - 11, 1)).toISOString().slice(0, 10);
   const from = sp.from || defFrom;
   const to = sp.to || defTo;
 
