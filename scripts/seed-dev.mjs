@@ -2,9 +2,12 @@
 // .env.local の DEV_LOGIN_EMAIL / DEV_LOGIN_PASSWORD でオーナーアカウントを作り、サンプル団体を用意する。
 import { createClient } from "@supabase/supabase-js";
 
-process.loadEnvFile(".env.local");
+// ENV_FILE で読み込む設定を切り替えられる（クラウドのデモ環境に入れる場合は .env.remote ＋ ALLOW_NON_LOCAL=1）
+process.loadEnvFile(process.env.ENV_FILE ?? ".env.local");
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(url)) throw new Error("ローカル以外では実行しません");
+if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(url) && process.env.ALLOW_NON_LOCAL !== "1") {
+  throw new Error("ローカル以外では実行しません（デモ環境に入れる場合は ALLOW_NON_LOCAL=1）");
+}
 const admin = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const email = process.env.DEV_LOGIN_EMAIL;
 const password = process.env.DEV_LOGIN_PASSWORD;

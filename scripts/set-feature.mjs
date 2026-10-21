@@ -2,7 +2,8 @@
 //   node scripts/set-feature.mjs <団体ID または 団体名> <partner_sharing|photo_pipeline_v2|photo_tiling> <on|off>
 import { createClient } from "@supabase/supabase-js";
 
-process.loadEnvFile(".env.local");
+// ENV_FILE で読み込む設定を切り替えられる（クラウドのデモ環境に入れる場合は .env.remote ＋ ALLOW_NON_LOCAL=1）
+process.loadEnvFile(process.env.ENV_FILE ?? ".env.local");
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(url) && process.env.ALLOW_NON_LOCAL !== "1") {
   throw new Error("ローカル以外では実行しません（検証環境で使う場合は ALLOW_NON_LOCAL=1）");

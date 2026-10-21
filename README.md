@@ -75,6 +75,15 @@ npm test
 - 継続参加者数・関係人口 = 団体設定の回数・期間で判定
 - 写真の人数はイベントごとの最大値を参考表示するだけで、合算も自動転記もしない
 
+## デモ環境（公開中）
+
+- URL：https://relationnote.vercel.app （Vercel・東京リージョン、チーム yotatameguchi-boops-projects / プロジェクト relation-note）
+- Supabase：`relation-note`（ref `sufuttgmkfmpsscuqdld`、東京、無料プラン、組織 yotatameguchi-boop's Org）
+- ワーカー：Edge Function `process-jobs`（`DETECTOR=mock`）を Supabase Cron が毎分起動
+- デモ用ログインは手元の `.env.remote`（Git 管理外）の `DEV_LOGIN_EMAIL` / `DEV_LOGIN_PASSWORD`
+- デモデータの入れ直し：`ENV_FILE=.env.remote ALLOW_NON_LOCAL=1 node scripts/seed-dev.mjs && ENV_FILE=.env.remote ALLOW_NON_LOCAL=1 node scripts/seed-demo-features.mjs`
+- 注意：デモのため、メールアドレスの確認なしで新規登録できる設定（`mailer_autoconfirm`）。人物検出はダミー。実在の個人情報は入れないこと
+
 ## 本番に向けて人が行う作業
 
 1. Supabase プロジェクト（東京リージョン想定）を作成し `supabase db push`、`supabase functions deploy process-jobs`
