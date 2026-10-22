@@ -23,13 +23,12 @@ export function LogoMark({ size = 32, title }: { size?: number; title?: string }
   );
 }
 
-export function Logo({ size = 32, sub = true, wordSize = 17 }: { size?: number; sub?: boolean; wordSize?: number }) {
+export function Logo({ size = 32, wordSize = 17 }: { size?: number; wordSize?: number }) {
   return (
     <span className="logo">
       <LogoMark size={size} />
       <span className="logo-word" style={{ fontSize: wordSize }}>
         <span className="rel">Relation</span><span className="note">Note</span>
-        {sub && <span className="logo-sub">リレーションノート</span>}
       </span>
     </span>
   );
