@@ -117,7 +117,7 @@ Vercel の環境変数 `MAIL_SENDING_CONFIGURED=1` を入れると画面の送�
 - Supabase：`relation-note`（ref `sufuttgmkfmpsscuqdld`、東京、無料プラン、組織 yotatameguchi-boop's Org）
 - ワーカー：Edge Function `process-jobs`（`DETECTOR=mock`）を Supabase Cron が毎分起動
 - デモ用ログインは手元の `.env.remote`（Git 管理外）の `DEV_LOGIN_EMAIL` / `DEV_LOGIN_PASSWORD`
-- デモデータの入れ直し：`ENV_FILE=.env.remote ALLOW_NON_LOCAL=1 node scripts/seed-dev.mjs && ENV_FILE=.env.remote ALLOW_NON_LOCAL=1 node scripts/seed-demo-features.mjs`
+- デモデータの入れ直し：`ENV_FILE=.env.remote ALLOW_NON_LOCAL=1 node scripts/seed-dev.mjs`、続けて同じ指定で `seed-demo-features.mjs`・`seed-demo-crm.mjs`
 - GitHub 連携：`main` に push すると本番へ自動デプロイ（他のブランチはプレビュー。プレビューも同じデモ用 Supabase につながる。プレビューは Vercel の保護で関係者のみ閲覧可）
 - 注意：デモのため、メールアドレスの確認なしで新規登録できる設定（`mailer_autoconfirm`）。人物検出はダミー。実在の個人情報は入れないこと
 
