@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireMembership, can, canManageSharing, getFeatures } from "@/lib/auth";
+import { getUser, requireMembership, can, canManageSharing, getFeatures } from "@/lib/auth";
+import { formatCustomValue, type FieldDef } from "@/lib/customFields";
+import { memberList } from "@/lib/members";
+import { nowMs } from "@/lib/format";
+import { CustomFieldInputs } from "@/components/CustomFieldInputs";
+import { InteractionForm, TaskForm, TaskList, Timeline, type TaskRow, type TimelineItem } from "@/components/CrmParts";
+import { linkCompany, saveCustomFields, unlinkCompany } from "../../crm-actions";
 import { partnerNames } from "@/lib/sharing";
 import { createClient } from "@/lib/supabase/server";
 import { fmtDate, fmtDateTime, MATCH_REASON_LABEL } from "@/lib/format";
@@ -44,6 +50,19 @@ export default async function PersonPage({ params, searchParams }: {
         return { auths: named(auths.data), grants: named(grants.data) };
       })()
     : null;
+  const url = `/orgs/${orgId}/people/${personId}`;
+  const me = await getUser();
+  const crmTarget = { orgId, back: url, personId };
+  const [defsRes, companyLinks, companyOptions, timeline, personTasks, members] = await Promise.all([
+    supabase.from("custom_field_definitions").select("*").eq("organization_id", orgId).eq("entity", "person").order("position"),
+    supabase.from("person_company_links").select("company_id, title, department, is_primary, companies(name)").eq("organization_id", orgId).eq("person_id", personId),
+    editor ? supabase.from("companies").select("id, name").eq("organization_id", orgId).order("name").limit(500) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    supabase.rpc("person_timeline", { org: orgId, pid: personId, max_rows: 200 }),
+    supabase.from("tasks").select("id, title, due_date, status, priority, assignee_id, person_id, company_id, companies(name)")
+      .eq("organization_id", orgId).eq("person_id", personId).order("status").order("due_date", { nullsFirst: false }),
+    memberList(orgId),
+  ]);
+  const fields = (defsRes.data ?? []) as FieldDef[];
   const tagSet = new Set((myTags.data ?? []).map((t) => t.tag_id));
   const hidden = (<><input type="hidden" name="orgId" value={orgId} /><input type="hidden" name="personId" value={personId} /></>);
   const participations = (parts.data ?? []).map((x) => ({ ...x, event: x.events as unknown as { id: string; title: string; starts_at: string } }))
@@ -143,21 +162,86 @@ export default async function PersonPage({ params, searchParams }: {
         </div>
       </div>
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>参加履歴</h2>
-        <table>
-          <thead><tr><th>日付</th><th>イベント</th><th>状態</th></tr></thead>
-          <tbody>
-            {participations.length === 0 && <tr><td colSpan={3} className="muted">参加履歴はありません。</td></tr>}
-            {participations.map((x) => (
-              <tr key={x.id}>
-                <td>{fmtDate(x.event.starts_at)}</td>
-                <td><Link href={`/orgs/${orgId}/events/${x.event.id}`}>{x.event.title}</Link></td>
-                <td><StatusBadge status={x.status} /></td>
+      <div className="grid grid-2">
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>追加項目</h2>
+          {fields.filter((f) => !f.archived).length === 0 ? (
+            <p className="small muted">人物の追加項目はまだありません。{can(m, "admin") && <Link href={`/orgs/${orgId}/settings/fields`}>項目を追加する</Link>}</p>
+          ) : editor ? (
+            <form action={saveCustomFields}>
+              <input type="hidden" name="orgId" value={orgId} /><input type="hidden" name="back" value={url} />
+              <input type="hidden" name="entity" value="person" /><input type="hidden" name="record_id" value={personId} />
+              <CustomFieldInputs defs={fields} values={p.custom_fields ?? {}} />
+              <button className="btn-secondary">項目を保存</button>
+            </form>
+          ) : (
+            <table className="small"><tbody>{fields.filter((f) => !f.archived).map((f) => (
+              <tr key={f.key}><th>{f.label}</th><td>{formatCustomValue(f, p.custom_fields?.[f.key])}</td></tr>
+            ))}</tbody></table>
+          )}
+        </div>
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>所属企業</h2>
+          <table className="small"><tbody>
+            {(companyLinks.data ?? []).length === 0 && <tr><td className="muted">所属企業はありません。</td></tr>}
+            {(companyLinks.data ?? []).map((l) => (
+              <tr key={l.company_id}>
+                <td><Link href={`/orgs/${orgId}/companies/${l.company_id}`}>{(l.companies as unknown as { name: string }).name}</Link>
+                  {l.is_primary && <span className="badge badge-ok" style={{ marginLeft: 6 }}>主担当</span>}</td>
+                <td>{[l.department, l.title].filter(Boolean).join("・") || "—"}</td>
+                <td className="right">{editor && (
+                  <form action={unlinkCompany}><input type="hidden" name="orgId" value={orgId} /><input type="hidden" name="back" value={url} />
+                    <input type="hidden" name="person_id" value={personId} /><input type="hidden" name="company_id" value={l.company_id} />
+                    <button className="link-btn small">外す</button></form>
+                )}</td>
               </tr>
             ))}
-          </tbody>
-        </table>
+          </tbody></table>
+          {editor && (companyOptions.data ?? []).length > 0 && (
+            <form action={linkCompany} className="row small" style={{ marginTop: 10 }}>
+              <input type="hidden" name="orgId" value={orgId} /><input type="hidden" name="back" value={url} /><input type="hidden" name="person_id" value={personId} />
+              <select name="company_id" aria-label="企業" style={{ flex: 1, minWidth: 140 }}>
+                {(companyOptions.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <input name="department" placeholder="部署" style={{ width: 100 }} aria-label="部署" />
+              <input name="title" placeholder="役職" style={{ width: 100 }} aria-label="役職" />
+              <label className="row" style={{ margin: 0, color: "var(--text)" }}><input type="checkbox" name="is_primary" />主担当</label>
+              <button className="btn-small">紐づける</button>
+            </form>
+          )}
+          {editor && <p className="small" style={{ marginTop: 8 }}><Link href={`/orgs/${orgId}/companies`}>企業の一覧・登録へ</Link></p>}
+        </div>
+      </div>
+
+      <div className="grid grid-2">
+        <div>
+          {editor && <InteractionForm t={crmTarget} now={new Date(nowMs()).toISOString()} />}
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>タイムライン</h2>
+            <p className="small muted">やりとり・メモ・イベントへの参加・フォームの回答を新しい順に表示しています。</p>
+            <Timeline items={(timeline.data ?? []) as TimelineItem[]} t={crmTarget} canEdit={editor} myId={me?.id} />
+          </div>
+        </div>
+        <div>
+          {editor && me && <TaskForm t={crmTarget} members={members.list} myId={me.id} />}
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>タスク</h2>
+            <TaskList tasks={(personTasks.data ?? []) as unknown as TaskRow[]} t={crmTarget} names={members.names} canEdit={editor} />
+          </div>
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>参加履歴</h2>
+            <table className="small"><tbody>
+              {participations.length === 0 && <tr><td className="muted">参加履歴はありません。</td></tr>}
+              {participations.map((x) => (
+                <tr key={x.id}>
+                  <td>{fmtDate(x.event.starts_at)}</td>
+                  <td><Link href={`/orgs/${orgId}/events/${x.event.id}`}>{x.event.title}</Link></td>
+                  <td><StatusBadge status={x.status} /></td>
+                </tr>
+              ))}
+            </tbody></table>
+          </div>
+        </div>
       </div>
 
       <div className="card">

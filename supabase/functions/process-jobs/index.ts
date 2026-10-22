@@ -6,6 +6,8 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createDetector, NonRetryableError } from "../_shared/detector.ts";
 import { csvCell } from "../_shared/csv.ts";
+import { createMailer, TransportError } from "../_shared/mailer.ts";
+import { escapeHtml, renderEmail } from "../_shared/email-render.ts";
 import {
   DEFAULT_SETTINGS, mapTileDetection, reviewReasons, suppressDuplicates, type RawDetection, type TileRect,
 } from "../_shared/counting.ts";
@@ -22,7 +24,7 @@ const VISIBILITY_SECONDS = 120;
 type Claimed = {
   msg_id: number;
   job_id: string;
-  kind: "process_submissions" | "photo_analysis" | "export_people";
+  kind: "process_submissions" | "photo_analysis" | "export_people" | "send_campaign" | "send_test_email" | "task_digest";
   organization_id: string;
   target_id: string | null;
   payload: Record<string, unknown>;
@@ -166,13 +168,19 @@ async function handleExport(db: SupabaseClient, job: Claimed) {
   const filters = (job.payload.filters ?? {}) as { tag_ids?: string[]; region?: string; q?: string };
   const { data: tags } = await db.from("tags").select("id, name").eq("organization_id", org);
   const tagName = new Map((tags ?? []).map((t) => [t.id, t.name]));
+  // 追加項目（使っている項目だけ、表示順に列を足す）
+  const { data: defs } = await db.from("custom_field_definitions").select("key, label, field_type")
+    .eq("organization_id", org).eq("entity", "person").eq("archived", false).order("position");
+  const cfCell = (v: unknown, type: string) =>
+    v == null ? "" : Array.isArray(v) ? v.join(" / ") : type === "checkbox" ? (v ? "はい" : "いいえ") : String(v);
 
-  const lines = [["人物ID", "氏名", "ふりがな", "居住地域", "メール", "電話", "タグ", "参加回数", "最終参加日", "登録日"].map(csvCell).join(",")];
+  const lines = [["人物ID", "氏名", "ふりがな", "居住地域", "メール", "電話", "タグ", "参加回数", "最終参加日", "登録日",
+    ...(defs ?? []).map((d) => d.label)].map(csvCell).join(",")];
   const pageSize = 1000;
   let rows = 0;
   for (let from = 0; ; from += pageSize) {
     let q = db.from("people")
-      .select("id, full_name, full_name_kana, region, attendance_count, last_attended_at, created_at, person_contacts(kind, value), person_tags(tag_id)")
+      .select("id, full_name, full_name_kana, region, attendance_count, last_attended_at, created_at, custom_fields, person_contacts(kind, value), person_tags(tag_id)")
       .eq("organization_id", org) // サービスロールなので団体の絞り込みを必ず明示する
       .order("created_at").order("id")
       .range(from, from + pageSize - 1);
@@ -189,6 +197,7 @@ async function handleExport(db: SupabaseClient, job: Claimed) {
         contacts.filter((c) => c.kind === "phone").map((c) => c.value).join(" / "),
         tagIds.map((t) => tagName.get(t)).filter(Boolean).join(" / "),
         p.attendance_count, p.last_attended_at?.slice(0, 10), p.created_at.slice(0, 10),
+        ...(defs ?? []).map((d) => cfCell((p.custom_fields as Record<string, unknown> | null)?.[d.key], d.field_type)),
       ].map(csvCell).join(","));
       rows++;
     }
@@ -199,6 +208,105 @@ async function handleExport(db: SupabaseClient, job: Claimed) {
   const { error: upErr } = await db.storage.from("exports").upload(path, body, { contentType: "text/csv", upsert: true });
   if (upErr) throw upErr;
   await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { path, rows } });
+}
+
+const APP_URL = () => (Deno.env.get("APP_URL") ?? "http://localhost:3080").replace(/\/$/, "");
+const SEND_INTERVAL_MS = Number(Deno.env.get("MAIL_SEND_INTERVAL_MS") ?? "300");
+
+type RecipientRow = {
+  recipient_id: string; email: string; name: string | null; full_name: string | null; display_name: string | null; token: string; subject: string; body_text: string;
+  from_name: string | null; reply_to: string | null; org_name: string; sender_info: string;
+};
+
+async function handleCampaign(db: SupabaseClient, job: Claimed, deadline: number) {
+  const mailer = await createMailer();
+  if (!mailer.configured) {
+    await rpc(db, "worker_campaign_failed", { job: job.job_id, err: "メール送信が設定されていません" });
+    throw new NonRetryableError("メール送信が設定されていません（MAIL_TRANSPORT）");
+  }
+  let sent = 0;
+  let failed = 0;
+  while (Date.now() < deadline - 5000) {
+    const rows = await rpc<RecipientRow[]>(db, "worker_claim_recipients", { job: job.job_id, max_rows: 20 });
+    if (!rows.length) break;
+    for (const r of rows) {
+      const unsubscribeUrl = `${APP_URL()}/u/${r.token}`;
+      const m = renderEmail({
+        subject: r.subject, body: r.body_text, name: r.display_name ?? r.name, fullName: r.full_name ?? r.name, orgName: r.org_name,
+        senderInfo: r.sender_info, unsubscribeUrl, openPixelUrl: `${APP_URL()}/api/t/o/${r.token}`,
+      });
+      try {
+        const info = await mailer.send({ to: r.email, ...m, fromName: r.from_name ?? r.org_name, replyTo: r.reply_to, unsubscribeUrl });
+        await rpc(db, "worker_mark_email", { recipient: r.recipient_id, ok: true, message_id: info.messageId, sent_subject: m.subject });
+        sent++;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (e instanceof TransportError) {
+          // 送れていないことが確実なので宛先を戻し、ジョブごと再試行する（残りの宛先も送信待ちのまま）
+          await rpc(db, "worker_mark_email", { recipient: r.recipient_id, ok: false, err: msg, requeue: true });
+          throw e;
+        }
+        await rpc(db, "worker_mark_email", { recipient: r.recipient_id, ok: false, err: msg });
+        failed++;
+        // 認証の失敗は全員に影響するので、配信を止めて理由を残す
+        if (/EAUTH|Invalid login|Username and Password not accepted|設定されていません/i.test(msg)) {
+          await rpc(db, "worker_campaign_failed", { job: job.job_id, err: msg });
+          throw new NonRetryableError(msg);
+        }
+      }
+      await new Promise((res) => setTimeout(res, SEND_INTERVAL_MS));
+      if (Date.now() > deadline - 5000) break;
+    }
+  }
+  const fin = await rpc<{ remaining: number; sent: number }>(db, "worker_finish_campaign", { job: job.job_id });
+  if (fin.remaining > 0) {
+    await rpc(db, "worker_requeue", { job: job.job_id, msg: job.msg_id, progress: { sent, failed, remaining: fin.remaining } });
+    return;
+  }
+  await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { sent: fin.sent, failed } });
+}
+
+async function handleTestEmail(db: SupabaseClient, job: Claimed) {
+  const mailer = await createMailer();
+  const p = job.payload as { campaign_id: string; to: string; name: string };
+  const { data: c, error } = await db.from("email_campaigns").select("subject, body_text, from_name, reply_to, organizations(name, email_sender_info)")
+    .eq("id", p.campaign_id).eq("organization_id", job.organization_id).single();
+  if (error || !c) throw new NonRetryableError("配信が見つかりません");
+  const org = c.organizations as unknown as { name: string; email_sender_info: string | null };
+  const m = renderEmail({
+    subject: `[テスト送信] ${c.subject}`, body: c.body_text, name: p.name, fullName: p.name, orgName: org.name,
+    senderInfo: org.email_sender_info ?? "（送信者情報が未設定です。組織設定で入力してください）",
+    unsubscribeUrl: `${APP_URL()}/u/test`, openPixelUrl: null,
+  });
+  const info = await mailer.send({ to: p.to, ...m, fromName: c.from_name ?? org.name, replyTo: c.reply_to });
+  await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { to: p.to, message_id: info.messageId } });
+}
+
+const PRIORITY_LABEL: Record<string, string> = { high: "高", normal: "", low: "低" };
+
+async function handleTaskDigest(db: SupabaseClient, job: Claimed) {
+  const d = await rpc<{ email: string; name: string; enabled: boolean; org_id: string; org_name: string;
+    tasks: { title: string; due_date: string; priority: string; person: string | null; company: string | null }[] } | null>(
+    db, "worker_task_digest", { job: job.job_id });
+  if (!d || !d.enabled || !d.tasks.length) {
+    await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { skipped: true } });
+    return;
+  }
+  const mailer = await createMailer();
+  if (!mailer.configured) {
+    await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { skipped: "mail_not_configured" } });
+    return;
+  }
+  const today = (job.payload as { date: string }).date;
+  const line = (t: (typeof d.tasks)[number]) =>
+    `${t.due_date < today ? "【期限切れ】" : "【今日まで】"}${t.due_date} ${t.title}${PRIORITY_LABEL[t.priority] ? `（優先度：${PRIORITY_LABEL[t.priority]}）` : ""}` +
+    `${t.person || t.company ? ` ／ ${[t.person, t.company].filter(Boolean).join("・")}` : ""}`;
+  const url = `${APP_URL()}/orgs/${d.org_id}/tasks`;
+  const text = `${d.name} さん\n\n${d.org_name} で、期限が今日までの未完了タスクが ${d.tasks.length}件あります。\n\n` +
+    d.tasks.map(line).join("\n") + `\n\nタスクの一覧：${url}\n\n（この通知はタスク画面の設定で止められます）\n`;
+  const html = `<div style="font-family:sans-serif;font-size:14px;line-height:1.7">${escapeHtml(text).replace(/\n/g, "<br>").replace(escapeHtml(url), `<a href="${url}">${escapeHtml(url)}</a>`)}</div>`;
+  await mailer.send({ to: d.email, subject: `【RelationNote】今日までのタスク ${d.tasks.length}件（${d.org_name}）`, text, html, fromName: "RelationNote" });
+  await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { tasks: d.tasks.length } });
 }
 
 async function maintenance(db: SupabaseClient) {
@@ -222,6 +330,9 @@ export async function runWorker(db: SupabaseClient) {
         if (job.kind === "photo_analysis") await handlePhoto(db, job, deadline);
         else if (job.kind === "process_submissions") await handleSubmissions(db, job, deadline);
         else if (job.kind === "export_people") await handleExport(db, job);
+        else if (job.kind === "send_campaign") await handleCampaign(db, job, deadline);
+        else if (job.kind === "send_test_email") await handleTestEmail(db, job);
+        else if (job.kind === "task_digest") await handleTaskDigest(db, job);
         summary.processed++;
       } catch (e) {
         summary.failed++;

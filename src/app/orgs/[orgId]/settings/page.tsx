@@ -17,6 +17,7 @@ async function save(fd: FormData) {
     relation_window_days: Number(fd.get("relation_window_days")),
     repeat_threshold: Number(fd.get("repeat_threshold")),
     photo_retention_days: Number(fd.get("photo_retention_days")),
+    email_sender_info: String(fd.get("email_sender_info") ?? "").trim() || null,
   }, { count: "exact" }).eq("id", orgId);
   if (error || !count) redirect(`/orgs/${orgId}/settings?error=${encodeURIComponent(toMessage(error, "保存できませんでした（オーナーのみ変更できます）。"))}`);
   revalidatePath(`/orgs/${orgId}`, "layout");
@@ -85,6 +86,9 @@ export default async function Settings({ params, searchParams }: { params: Promi
         </p>
       </div>
 
+      {m.role !== "viewer" && (m.role === "owner" || m.role === "admin") && (
+        <p><a className="btn btn-secondary" href={`/orgs/${orgId}/settings/fields`}>人物・企業の項目を設定する</a></p>
+      )}
       <div className="card">
         <h2 style={{ marginTop: 0 }}>機能の有効化状況</h2>
         <table className="small"><tbody>
@@ -109,6 +113,10 @@ export default async function Settings({ params, searchParams }: { params: Promi
           </div>
           <h3>写真</h3>
           <label className="inline-field">写真の保存期間（日）：過ぎると画像を削除（人数の記録は残す）<input type="number" name="photo_retention_days" min={1} max={3650} defaultValue={org.photo_retention_days} /></label>
+          <h3>メール配信</h3>
+          <label className="field">送信者情報（住所または連絡先。一斉配信メールの末尾に表示します）
+            <textarea name="email_sender_info" defaultValue={org.email_sender_info ?? ""} maxLength={500} style={{ minHeight: 60 }} placeholder="例：〒000-0000 東京都○○区… ／ お問い合わせ：info@example.org" />
+          </label>
           <div style={{ marginTop: 12 }}><button>保存</button></div>
         </fieldset>
       </form>

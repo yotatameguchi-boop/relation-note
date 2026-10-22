@@ -6,8 +6,8 @@ import { saveMapping } from "@/app/orgs/[orgId]/forms/actions";
 
 const CHUNK = 300;
 
-export function CsvImporter({ orgId, connId, savedMapping, canEditMapping }: {
-  orgId: string; connId: string; savedMapping: Mapping; canEditMapping: boolean;
+export function CsvImporter({ orgId, connId, savedMapping, canEditMapping, customFields = [] }: {
+  orgId: string; connId: string; savedMapping: Mapping; canEditMapping: boolean; customFields?: { key: string; label: string }[];
 }) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
@@ -91,6 +91,7 @@ export function CsvImporter({ orgId, connId, savedMapping, canEditMapping }: {
                       <td>
                         <select value={isAttr ? "attr" : v} onChange={(e) => setMapping({ ...mapping, [h]: e.target.value === "attr" ? `attr:${h}` : e.target.value })}>
                           {TARGET_FIELDS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                          {customFields.map((f) => <option key={f.key} value={`custom:${f.key}`}>追加項目：{f.label}</option>)}
                           <option value="attr">その他の項目として保存</option>
                         </select>
                       </td>

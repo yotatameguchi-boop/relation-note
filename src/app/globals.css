@@ -200,3 +200,14 @@ th .sort-link:hover { color: var(--accent); }
 th .sort-link span { opacity: .45; font-size: 11px; }
 th .sort-link.active { color: var(--accent); }
 th .sort-link.active span { opacity: 1; }
+/* タイムライン */
+.timeline { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--border); }
+.timeline li { position: relative; padding: 4px 0 12px 10px; }
+.timeline li::before { content: ""; position: absolute; left: -21px; top: 9px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface); }
+.timeline li.tl-note::before { background: var(--muted); }
+.timeline li.tl-participation::before { background: var(--teal); }
+.timeline li.tl-submission::before { background: var(--warn); }
+/* タスクのチェック */
+.task-check { width: 22px; height: 22px; padding: 0; border-radius: 50%; background: var(--surface); color: var(--teal-strong); border: 2px solid var(--border); font-size: 13px; line-height: 1; }
+.task-check:hover { border-color: var(--teal); }
+.nav-count { display: inline-block; margin-left: 6px; min-width: 18px; padding: 0 6px; border-radius: 99px; background: var(--danger); color: #fff; font-size: 11px; text-align: center; }

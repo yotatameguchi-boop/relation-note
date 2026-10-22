@@ -12,4 +12,6 @@ export const env = {
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   appUrl: appUrl(),
+  // ワーカー（Edge Function）側にメール送信の設定（MAIL_TRANSPORT など）を入れたら "1" にする
+  mailConfigured: process.env.MAIL_SENDING_CONFIGURED === "1",
 };

@@ -10,7 +10,12 @@ export default async function OrgLayout({ children, params }: { children: React.
   const { orgId } = await params;
   const m = await requireMembership(orgId);
   const supabase = await createClient();
-  const { data: usage } = await supabase.rpc("org_usage", { org: orgId });
+  const [{ data: usage }, { data: taskCounts }] = await Promise.all([
+    supabase.rpc("org_usage", { org: orgId }),
+    supabase.rpc("my_task_counts", { org: orgId }),
+  ]);
+  const due = (taskCounts as { overdue: number; today: number } | null);
+  const dueCount = (due?.overdue ?? 0) + (due?.today ?? 0);
   const warnings = usage ? usageWarnings(usage as Usage) : [];
   const base = `/orgs/${orgId}`;
   const editor = can(m, "editor");
@@ -36,12 +41,20 @@ export default async function OrgLayout({ children, params }: { children: React.
           sections={[
             { items: [{ href: base, label: "ダッシュボード", exact: true }] },
             {
-              title: "人物",
+              items: [{ href: `${base}/tasks`, label: "タスク", badge: dueCount > 0 ? `${dueCount}` : undefined, badgeLabel: `期限が今日までの自分のタスク ${dueCount}件` }],
+            },
+            {
+              title: "顧客",
               items: [
                 { href: `${base}/people`, label: "人物一覧", exact: true },
+                { href: `${base}/companies`, label: "企業" },
                 ...(editor ? [{ href: `${base}/people/duplicates`, label: "重複候補" }] : []),
                 { href: `${base}/tags`, label: "タグ" },
               ],
+            },
+            {
+              title: "メール",
+              items: [{ href: `${base}/emails`, label: "メール配信" }],
             },
             {
               title: "応募フォーム",

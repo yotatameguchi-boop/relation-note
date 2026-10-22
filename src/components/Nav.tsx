@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type Item = { href: string; label: string; exact?: boolean };
+type Item = { href: string; label: string; exact?: boolean; badge?: string; badgeLabel?: string };
 
 export function Nav({ sections }: { sections: { title?: string; items: Item[] }[] }) {
   const path = usePathname();
@@ -16,6 +16,7 @@ export function Nav({ sections }: { sections: { title?: string; items: Item[] }[
             return (
               <Link key={it.href} href={it.href} aria-current={active ? "page" : undefined}>
                 {it.label}
+                {it.badge && <span className="nav-count" aria-label={it.badgeLabel}>{it.badge}</span>}
               </Link>
             );
           })}

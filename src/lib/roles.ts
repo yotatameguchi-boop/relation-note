@@ -1,5 +1,5 @@
 export type Role = "owner" | "admin" | "editor" | "viewer";
-export type Permission = "bulk_export" | "bulk_delete" | "merge_people" | "manage_permissions" | "manage_sharing" | "view_shared";
+export type Permission = "bulk_export" | "bulk_delete" | "merge_people" | "manage_permissions" | "manage_sharing" | "view_shared" | "bulk_email";
 
 export const ROLE_RANK: Record<Role, number> = { owner: 4, admin: 3, editor: 2, viewer: 1 };
 
@@ -17,6 +17,7 @@ export const PERMISSION_LABEL: Record<Permission, string> = {
   manage_permissions: "権限変更",
   manage_sharing: "組織間共有の設定",
   view_shared: "他組織からの共有の閲覧",
+  bulk_email: "一斉メール配信",
 };
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABEL) as Permission[];

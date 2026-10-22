@@ -47,7 +47,7 @@ export const getMembership = cache(async (orgId: string): Promise<Membership | n
     status: org.status,
     role: data.role as Role,
     permissions: (data.role === "owner"
-      ? ["bulk_export", "bulk_delete", "merge_people", "manage_permissions", "manage_sharing", "view_shared"]
+      ? ["bulk_export", "bulk_delete", "merge_people", "manage_permissions", "manage_sharing", "view_shared", "bulk_email"]
       : data.permissions) as Permission[],
   };
 });

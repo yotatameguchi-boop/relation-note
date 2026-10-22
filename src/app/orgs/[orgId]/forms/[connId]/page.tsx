@@ -17,9 +17,10 @@ export default async function ConnectionPage({ params, searchParams }: {
   const supabase = await createClient();
   const { data: c } = await supabase.from("form_connections").select("*").eq("organization_id", orgId).eq("id", connId).maybeSingle();
   if (!c) notFound();
-  const [{ data: events }, { data: tags }] = await Promise.all([
+  const [{ data: events }, { data: tags }, { data: cfs }] = await Promise.all([
     supabase.from("events").select("id, title").eq("organization_id", orgId).order("starts_at", { ascending: false }).limit(100),
     supabase.from("tags").select("id, name").eq("organization_id", orgId).order("name"),
+    supabase.from("custom_field_definitions").select("key, label").eq("organization_id", orgId).eq("entity", "person").eq("archived", false).order("position"),
   ]);
   const mapping = (c.field_mapping ?? {}) as Record<string, string>;
   const admin = can(m, "admin");
@@ -27,6 +28,7 @@ export default async function ConnectionPage({ params, searchParams }: {
   const targetOptions = (
     <>
       {TARGET_FIELDS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+      {(cfs ?? []).map((f) => <option key={f.key} value={`custom:${f.key}`}>追加項目：{f.label}</option>)}
     </>
   );
 
@@ -40,7 +42,7 @@ export default async function ConnectionPage({ params, searchParams }: {
         </div>
       )}
 
-      {c.kind === "csv" && <CsvImporter orgId={orgId} connId={connId} savedMapping={mapping} canEditMapping={admin} />}
+      {c.kind === "csv" && <CsvImporter orgId={orgId} connId={connId} savedMapping={mapping} canEditMapping={admin} customFields={cfs ?? []} />}
 
       {c.kind === "webhook" && (
         <div className="card">
