@@ -8,6 +8,9 @@ import { createDetector, NonRetryableError } from "../_shared/detector.ts";
 import { csvCell } from "../_shared/csv.ts";
 import { createMailer, TransportError } from "../_shared/mailer.ts";
 import { escapeHtml, renderEmail } from "../_shared/email-render.ts";
+import { getForm, getSheetValues, getSpreadsheetTitle, listFormResponses, ReauthError, refreshAccessToken } from "../_shared/google.ts";
+import { googleFormColumns, googleFormResponsesToRows, sheetValuesToRows, suggestGoogleFormMapping } from "../_shared/connectors.ts";
+import { suggestMapping } from "../_shared/mapping.ts";
 import {
   DEFAULT_SETTINGS, mapTileDetection, reviewReasons, suppressDuplicates, type RawDetection, type TileRect,
 } from "../_shared/counting.ts";
@@ -24,7 +27,7 @@ const VISIBILITY_SECONDS = 120;
 type Claimed = {
   msg_id: number;
   job_id: string;
-  kind: "process_submissions" | "photo_analysis" | "export_people" | "send_campaign" | "send_test_email" | "task_digest";
+  kind: "process_submissions" | "photo_analysis" | "export_people" | "send_campaign" | "send_test_email" | "task_digest" | "sync_connector";
   organization_id: string;
   target_id: string | null;
   payload: Record<string, unknown>;
@@ -309,6 +312,60 @@ async function handleTaskDigest(db: SupabaseClient, job: Claimed) {
   await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { tasks: d.tasks.length } });
 }
 
+const MAX_SHEET_ROWS = 5000;
+
+async function handleSyncConnector(db: SupabaseClient, job: Claimed) {
+  const mode = (job.payload as { mode?: string }).mode === "discover" ? "discover" : "sync";
+  const { data: c, error } = await db.from("form_connections").select("id, kind, provider_config, sync_cursor")
+    .eq("id", job.target_id!).eq("organization_id", job.organization_id).single();
+  if (error || !c) throw new NonRetryableError("連携が見つかりません");
+  const cfg = (c.provider_config ?? {}) as { form_id?: string; spreadsheet_id?: string; sheet?: string };
+  try {
+    const refresh = await rpc<string | null>(db, "get_connector_secret", { conn: c.id });
+    if (!refresh) throw new ReauthError("Google アカウントと連携されていません");
+    const token = await refreshAccessToken(refresh);
+    if (c.kind === "google_forms") {
+      if (!cfg.form_id) throw new NonRetryableError("フォームの URL が設定されていません");
+      const form = await getForm(token, cfg.form_id);
+      const columns = googleFormColumns(form);
+      if (mode === "discover") {
+        await rpc(db, "worker_store_discovery", { job: job.job_id, columns, suggested: suggestGoogleFormMapping(columns),
+          title: form.info?.title ?? form.info?.documentTitle ?? null });
+        await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { columns: columns.length } });
+        return;
+      }
+      const { responses, complete } = await listFormResponses(token, cfg.form_id, c.sync_cursor);
+      const rows = googleFormResponsesToRows(form, responses as never[]);
+      // 取得した中で最も新しい送信日時を次回の起点にする（取り切れなかった場合も、取得済みの分までは進める）
+      const cursor = rows.map((r) => r.submitted_at).filter((x): x is string => !!x).sort().pop() ?? c.sync_cursor;
+      const r = await rpc<{ inserted: number }>(db, "worker_ingest_connector_rows", { job: job.job_id, rows, new_cursor: cursor, columns });
+      await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { fetched: rows.length, inserted: r.inserted, complete } });
+      return;
+    }
+    if (c.kind === "google_sheets") {
+      if (!cfg.spreadsheet_id) throw new NonRetryableError("スプレッドシートの URL が設定されていません");
+      const values = await getSheetValues(token, cfg.spreadsheet_id, cfg.sheet ?? null);
+      const { columns, rows } = sheetValuesToRows(values);
+      if (mode === "discover") {
+        const title = await getSpreadsheetTitle(token, cfg.spreadsheet_id).catch(() => undefined);
+        await rpc(db, "worker_store_discovery", { job: job.job_id, columns, suggested: suggestMapping(columns), title: title ?? null });
+        await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { columns: columns.length } });
+        return;
+      }
+      if (rows.length > MAX_SHEET_ROWS) throw new NonRetryableError(`行数が多すぎます（${rows.length}行。上限 ${MAX_SHEET_ROWS}行）`);
+      // シートには回答IDが無いので、行の内容で二重取り込みを防ぐ（DB 側でハッシュ）
+      const r = await rpc<{ inserted: number }>(db, "worker_ingest_connector_rows", { job: job.job_id, rows, new_cursor: null, columns });
+      await rpc(db, "worker_complete", { job: job.job_id, msg: job.msg_id, job_result: { fetched: rows.length, inserted: r.inserted } });
+      return;
+    }
+    throw new NonRetryableError("この連携は自動取得に対応していません");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await rpc(db, "worker_connector_error", { job: job.job_id, err: msg, reauth: e instanceof ReauthError });
+    throw e;
+  }
+}
+
 async function maintenance(db: SupabaseClient) {
   const expired = await rpc<{ photo_id: string; storage_path: string; reason: string; extra_paths: string[] }[]>(
     db, "worker_expired_photos", { max_rows: 100 });
@@ -333,6 +390,7 @@ export async function runWorker(db: SupabaseClient) {
         else if (job.kind === "send_campaign") await handleCampaign(db, job, deadline);
         else if (job.kind === "send_test_email") await handleTestEmail(db, job);
         else if (job.kind === "task_digest") await handleTaskDigest(db, job);
+        else if (job.kind === "sync_connector") await handleSyncConnector(db, job);
         summary.processed++;
       } catch (e) {
         summary.failed++;

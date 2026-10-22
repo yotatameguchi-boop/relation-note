@@ -6,6 +6,9 @@ import { env } from "@/lib/env";
 import { TARGET_FIELDS } from "@/lib/csv";
 import { Flash } from "@/components/ui";
 import { CsvImporter } from "@/components/CsvImporter";
+import { ConnectorPanel, CONNECTOR_LABEL } from "@/components/ConnectorPanel";
+import { googleConfigured } from "@/lib/google";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { deleteConnection, rotateSecret, updateConnection } from "../actions";
 
 export default async function ConnectionPage({ params, searchParams }: {
@@ -23,6 +26,11 @@ export default async function ConnectionPage({ params, searchParams }: {
     supabase.from("custom_field_definitions").select("key, label").eq("organization_id", orgId).eq("entity", "person").eq("archived", false).order("position"),
   ]);
   const mapping = (c.field_mapping ?? {}) as Record<string, string>;
+  const isConnector = ["google_forms", "google_sheets", "typeform", "tally"].includes(c.kind);
+  const { data: connStatus } = isConnector ? await supabase.rpc("connector_status", { conn: connId }) : { data: null };
+  // 外部から読み込んだ項目名のうち、まだ対応表にないもの（選べるように一覧に出す）
+  const discovered = ((c.provider_config?.columns ?? []) as string[]).filter((k) => !(k in mapping));
+  const busy = (connStatus as { job?: { status: string } | null } | null)?.job && ["queued", "running"].includes((connStatus as { job: { status: string } }).job.status);
   const admin = can(m, "admin");
   const hidden = (<><input type="hidden" name="orgId" value={orgId} /><input type="hidden" name="connId" value={connId} /></>);
   const targetOptions = (
@@ -34,12 +42,21 @@ export default async function ConnectionPage({ params, searchParams }: {
 
   return (
     <>
+      {busy && <AutoRefresh seconds={5} />}
       <div className="spread"><h1>{c.name}</h1><Link href={`/orgs/${orgId}/forms`}>← 一覧</Link></div>
+      <p className="small muted">{CONNECTOR_LABEL[c.kind] ?? c.kind}</p>
       <Flash sp={sp} />
-      {sp.secret && (
+      {sp.secret && !isConnector && (
         <div className="notice notice-ok">
           新しい送信用の秘密です。この画面を離れると二度と表示されません。外部フォーム側に設定してください：<br /><code>{sp.secret}</code>
         </div>
+      )}
+
+      {sp.secret && isConnector && (
+        <div className="notice notice-ok">署名用の秘密です。この画面を離れると二度と表示されません。{c.kind === "typeform" ? "Typeform" : "Tally"} の Webhook 設定に入れてください：<br /><code>{sp.secret}</code></div>
+      )}
+      {isConnector && connStatus && (
+        <ConnectorPanel orgId={orgId} c={c as never} status={connStatus as never} admin={admin} googleReady={googleConfigured()} />
       )}
 
       {c.kind === "csv" && <CsvImporter orgId={orgId} connId={connId} savedMapping={mapping} canEditMapping={admin} customFields={cfs ?? []} />}
@@ -103,6 +120,18 @@ Content-Type: application/json
                         {targetOptions}
                         <option value={`attr:${k}`}>その他の項目として保存</option>
                         {v.startsWith("attr:") && v !== `attr:${k}` && <option value={v}>{v}</option>}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+                {discovered.map((k) => (
+                  <tr key={`d-${k}`}>
+                    <td>{k}<span className="badge" style={{ marginLeft: 6 }}>未設定</span></td>
+                    <td>
+                      <select name={`map:${k}`} defaultValue="">
+                        <option value="">（取り込まない）</option>
+                        {targetOptions}
+                        <option value={`attr:${k}`}>その他の項目として保存</option>
                       </select>
                     </td>
                   </tr>

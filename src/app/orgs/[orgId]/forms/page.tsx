@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fmtDateTime } from "@/lib/format";
 import { Flash, StatusBadge } from "@/components/ui";
 import { createConnection } from "./actions";
+import { CONNECTOR_LABEL } from "@/components/ConnectorPanel";
 
 export default async function Forms({ params, searchParams }: { params: Promise<{ orgId: string }>; searchParams: Promise<{ error?: string; ok?: string }> }) {
   const { orgId } = await params;
@@ -11,7 +12,7 @@ export default async function Forms({ params, searchParams }: { params: Promise<
   const m = await requireMembership(orgId, "editor");
   const supabase = await createClient();
   const [{ data: conns }, { data: batches }, { data: events }, { count: review }] = await Promise.all([
-    supabase.from("form_connections").select("id, name, kind, is_active, events(title)").eq("organization_id", orgId).order("created_at"),
+    supabase.from("form_connections").select("id, name, kind, is_active, sync_enabled, events(title)").eq("organization_id", orgId).order("created_at"),
     supabase.from("import_batches").select("id, filename, status, total_rows, duplicate_rows, created_at, form_connections(name)").eq("organization_id", orgId).order("created_at", { ascending: false }).limit(20),
     supabase.from("events").select("id, title, starts_at").eq("organization_id", orgId).order("starts_at", { ascending: false }).limit(100),
     supabase.from("form_submissions").select("id", { count: "exact", head: true }).eq("organization_id", orgId).eq("status", "needs_review"),
@@ -32,7 +33,7 @@ export default async function Forms({ params, searchParams }: { params: Promise<
             {(conns ?? []).map((c) => (
               <tr key={c.id}>
                 <td><Link href={`/orgs/${orgId}/forms/${c.id}`}>{c.name}</Link></td>
-                <td>{c.kind === "csv" ? "CSV取り込み" : "外部フォーム自動連携"}</td>
+                <td>{CONNECTOR_LABEL[c.kind] ?? c.kind}{c.sync_enabled && <span className="badge badge-ok" style={{ marginLeft: 6 }}>自動取り込み中</span>}</td>
                 <td className="small">{(c.events as unknown as { title: string } | null)?.title ?? "—"}</td>
                 <td>{c.is_active ? <span className="badge badge-ok">有効</span> : <span className="badge">停止</span>}</td>
               </tr>
@@ -48,7 +49,14 @@ export default async function Forms({ params, searchParams }: { params: Promise<
             <label className="inline-field" style={{ flex: 2 }}>名前<input name="name" required placeholder="例：ボランティア募集フォーム" /></label>
             <div className="inline-field">
               <label>方式</label>
-              <select name="kind" aria-label="方式"><option value="csv">CSV取り込み</option><option value="webhook">外部フォーム自動連携</option></select>
+              <select name="kind" aria-label="方式">
+                <option value="csv">CSV取り込み</option>
+                <option value="google_forms">Google フォーム（自動取得）</option>
+                <option value="google_sheets">Google スプレッドシート（自動取得）</option>
+                <option value="typeform">Typeform（自動受信）</option>
+                <option value="tally">Tally（自動受信）</option>
+                <option value="webhook">汎用の自動連携（Webhook）</option>
+              </select>
             </div>
             <div className="inline-field" style={{ flex: 1 }}>
               <label>申込先イベント（任意）</label>

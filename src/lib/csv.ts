@@ -41,29 +41,8 @@ export function parseCsv(text: string): { headers: string[]; rows: Record<string
   return { headers, rows, errors };
 }
 
-const GUESSES: [RegExp, string][] = [
-  [/(ふりがな|フリガナ|カナ|kana)/i, "full_name_kana"],
-  [/(氏名|名前|お名前|name)/i, "full_name"],
-  [/(メール|e-?mail|mail)/i, "email"],
-  [/(電話|tel|phone|携帯)/i, "phone"],
-  [/(住所|地域|居住|市区町村|都道府県|region|address)/i, "region"],
-  [/(タイムスタンプ|回答日時|送信日時|timestamp|submitted)/i, "submitted_at"],
-  [/(回答id|response.?id|応募番号|受付番号)/i, "external_id"],
-  [/(タグ|分類|関心|tag)/i, "tags"],
-  [/(備考|メモ|ご意見|note|comment)/i, "note"],
-];
-
-/** 列名から対応先を推測する（スタッフが確認・修正する前提の初期値） */
-export function suggestMapping(headers: string[]): Mapping {
-  const used = new Set<string>();
-  const m: Mapping = {};
-  for (const h of headers) {
-    const hit = GUESSES.find(([re, target]) => re.test(h) && (target === "tags" || target === "note" || !used.has(target)));
-    m[h] = hit ? hit[1] : `attr:${h}`;
-    if (hit) used.add(hit[1]);
-  }
-  return m;
-}
+// 列名からの推測は外部連携と共通（supabase/functions/_shared/mapping.ts）
+export { suggestMapping } from "@shared/mapping";
 
 export type ImportRow = { raw: Record<string, string>; dedupe_key: string | null; external_id: string | null };
 

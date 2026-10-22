@@ -92,6 +92,25 @@ npm test
 Vercel の環境変数 `MAIL_SENDING_CONFIGURED=1` を入れると画面の送信ボタンが有効になる。Edge Functions は 25・587 番ポートに接続できないため、Gmail は 465 を使う。
 ローカルでは Supabase 付属のテスト用メールサーバー（Mailpit、http://127.0.0.1:55624）に送られ、外部には届かない。
 
+## 外部データとのコネクト（自動取り込み）
+
+「取り込み・連携」でフォーム（取り込み元）を作るときに方式を選ぶ。取り込んだ回答は CSV と同じ流れ（二重取り込み防止 → 名寄せ → 確認待ち）に乗る。
+
+| 方式 | 仕組み | 利用者の操作 |
+|---|---|---|
+| Google フォーム | OAuth（読み取り専用）で連携し、Forms API から前回以降の回答を定期取得（既定15分ごと） | 「Google と連携」→ フォームの URL を貼る → 提案された項目の対応を確認 →「自動取り込みを始める」 |
+| Google スプレッドシート | 同上。Sheets API で1行目を見出しとして読み、内容が同じ行は二重に取り込まない | 同上（シート名は任意） |
+| Typeform / Tally | 相手のサービスから Webhook。署名（HMAC-SHA256）で送信元を確認 | 「署名用の秘密を発行」→ 相手の Webhook 設定に URL と秘密を入れる |
+| 汎用 Webhook | `Authorization: Bearer <秘密>` 付きの JSON | Apps Script などから送る |
+
+- 連携の鍵（Google のリフレッシュトークン・署名用の秘密）は Supabase Vault に暗号化して保存し、利用者向け API からは読めない。連携を削除すると鍵も消える
+- 「氏名」の対応が決まるまで届いた回答は保留にし、対応を保存すると自動で処理する
+- Google の連携が取り消されたら「連携し直してください」にして自動取得を止める
+- Google を使うには Google Cloud で OAuth クライアント（ウェブアプリ）を作り、`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を Vercel と Edge Function の両方に設定する。
+  承認済みのリダイレクト URI は `https://relationnote.vercel.app/api/connectors/google/callback`。
+  フォームの回答・スプレッドシートの読み取りは Google の「機密性の高いスコープ」のため、一般公開には Google の審査が必要（審査前はテストユーザーに登録した100人まで）
+- ローカルでは `node scripts/mock-google.mjs`（Google を模した疑似サーバー）で、連携から取り込みまで確認できる。本物の Google での検証ではない
+
 ## デモ環境（公開中）
 
 - URL：https://relationnote.vercel.app （Vercel・東京リージョン、チーム yotatameguchi-boops-projects / プロジェクト relation-note）
