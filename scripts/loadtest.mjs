@@ -1,5 +1,7 @@
 // 負荷試験：本番ビルド（next start）に、ログイン済みのスタッフとして主要画面を同時に要求し、応答時間を測る。
 //   BASE=http://localhost:3090 node scripts/loadtest.mjs [同時数の並び=1,10,30] [各段階の秒数=30]
+//   本番のデモ組織に軽くかける場合：ENV_FILE=.env.remote BASE=https://relationnote.vercel.app LOADTEST_ORG=<組織ID>
+//     LOADTEST_EMAIL/LOADTEST_PASSWORD 未設定なら DEV_LOGIN_* を使う
 // 目標：同時10人で 95% の要求が2秒以内（設計書の非機能要件）。結果は JSON で標準出力へ。
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
@@ -16,13 +18,15 @@ const jar = new Map();
 const ssr = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
   cookies: { getAll: () => [...jar].map(([name, value]) => ({ name, value })), setAll: (cs) => cs.forEach((c) => jar.set(c.name, c.value)) },
 });
-const { error } = await ssr.auth.signInWithPassword({ email: process.env.LOADTEST_EMAIL, password: process.env.LOADTEST_PASSWORD });
+const { error } = await ssr.auth.signInWithPassword({
+  email: process.env.LOADTEST_EMAIL ?? process.env.DEV_LOGIN_EMAIL, password: process.env.LOADTEST_PASSWORD ?? process.env.DEV_LOGIN_PASSWORD });
 if (error) throw error;
 const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join("; ");
 
 // 試験で開く人物・タグ（実在のIDを使う）
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-const { data: people } = await db.from("people").select("id").eq("organization_id", org).gt("attendance_count", 1).limit(200);
+let { data: people } = await db.from("people").select("id").eq("organization_id", org).gt("attendance_count", 1).limit(200);
+if (!people?.length) ({ data: people } = await db.from("people").select("id").eq("organization_id", org).limit(200));
 const { data: tags } = await db.from("tags").select("id").eq("organization_id", org).limit(3);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const NAMES = ["佐藤", "鈴木 花子", "高橋", "田中 健", "中村", "lt-1", "090-0000"];

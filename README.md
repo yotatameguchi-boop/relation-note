@@ -129,6 +129,47 @@ Vercel の環境変数 `MAIL_SENDING_CONFIGURED=1` を入れると画面の送�
 4. Vercel に Next.js をデプロイし、`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` / `NEXT_PUBLIC_APP_URL` を設定
 5. Supabase Auth のメール送信（SMTP）とリダイレクトURLを本番ドメインに設定
 
+## 料金・契約（Stripe）
+
+- 組織の作成から30日間は無料（`trialing`）。オーナーは「料金・契約」から月払い4,980円／年払い49,800円（税別）を申し込む。無料期間中に申し込んでも、請求は無料期間の終わりから
+- カード情報は Stripe の画面（Checkout）で入力し、当サービスには届かない。支払い方法の変更・周期の変更・領収書・解約は Stripe のカスタマーポータル
+- Stripe の通知（`/api/billing/webhook`）は署名を確かめ、イベントIDで1回だけ処理する。通知の順序に頼らず、毎回 Stripe から最新の契約を取り直して反映する
+- 無料期間の終了・期間末を過ぎた解約・支払いが確認できないまま期間末から14日過ぎた場合は「停止中」（閲覧と出力のみ）。申し込めばすぐ再開する。運営者が手で止めた組織は、契約の更新で勝手に再開しない
+- 毎時 `refresh_all_org_access()` が契約状態を確認する（pg_cron `npo-crm-org-access`）。無償で提供する組織は `subscription_status = 'complimentary'`
+- **決済は未接続**（Stripe の契約がないため）。キーがない間は画面に「準備中」と出る。手元では疑似 Stripe（`node scripts/mock-stripe.mjs`）で申し込み〜解約〜再申し込みを確認済み。本物の Stripe での確認は未実施
+
+有効にする手順（運営者）
+1. Stripe で商品「標準プラン」を作り、月額4,980円・年額49,800円の価格（税別、`tax_behavior=exclusive`）を作る。消費税は税率（10%・外税）を作るか Stripe Tax を使う
+2. Webhook の送信先に `https://relationnote.vercel.app/api/billing/webhook` を登録（イベント：`checkout.session.completed`、`customer.subscription.created/updated/deleted`、`invoice.paid`、`invoice.payment_failed`）
+3. カスタマーポータルを有効にする（解約・支払い方法の変更・周期の変更を許可）
+4. Vercel に `STRIPE_SECRET_KEY`、`STRIPE_WEBHOOK_SECRET`、`STRIPE_PRICE_MONTHLY`、`STRIPE_PRICE_YEARLY`、（任意）`STRIPE_TAX_RATE_ID` を設定。まずテストモードの鍵（`sk_test_…`）で通しで確認する
+
+## 利用規約・プライバシーポリシー・特定商取引法に基づく表記
+
+- `/terms`、`/privacy`、`/legal`。ログイン画面と全画面の下部にリンク
+- 事業者名・住所・連絡先・管轄裁判所は `src/lib/legal.ts` の **【要記入】を運営者が埋める**。**公開前に弁護士等の確認を受けること**（文面はひな形）
+- 新規登録時に同意を必須にし、同意した版（`TERMS_VERSION`）と日時を `users` に記録。規約を改定したら `TERMS_VERSION` を上げると、ログイン中のスタッフに再同意を求める
+
+## 監視
+
+- `/api/health`：状態（ok／degraded／down）。`Authorization: Bearer <HEALTH_TOKEN>` 付きで指標と問題の一覧
+- GitHub Actions `monitor`：30分ごとに確認し、異常なら Issue（ラベル `monitor`）を作成して GitHub からメールで知らせる。回復したら自動で閉じる。通知の経路は手動実行の `simulate_failure` で試せる
+- 異常のときに見るもの：`worker_stale`（ワーカーが10分以上動いていない → Supabase の Edge Function のログと pg_cron の実行履歴）、`queue_backlog`（ジョブの滞留）、`dead_jobs_24h`（失敗の多発 → 「処理状況」画面）、`db_size`（容量。無料枠の上限は500MB）
+- `HEALTH_TOKEN` は Vercel（本番・プレビュー）と GitHub の secrets に同じ値。手元の `.env.local` の `REMOTE_HEALTH_TOKEN`
+
+## バックアップと復元
+
+- 取得：`scripts/backup.sh`（保存先 `~/Claude/npo-crm-backups/日時/`。個人情報を含むのでリポジトリの外。30日より古いものは削除）
+- 試験：`scripts/restore-test.sh <バックアップのフォルダ>`（本番と同じ版で空の Supabase を手元に立てて復元し、件数・RLS・ファイルのハッシュ・ログインを確認）
+- **無料枠には自動バックアップがない**。有料化までは毎日 `scripts/backup.sh` を実行する
+- 本番の障害で新しいプロジェクトへ戻す場合：新しいプロジェクトに `roles.sql` → `schema.sql` → `select pgmq.create('jobs')` → `set session_replication_role = replica` で `data.sql`（`restore-test.sh` と同じ順）。続けて `storage-sync.mjs upload`、マイグレーション履歴の `supabase migration repair`、pg_cron の予定と Vault の秘密の再設定、外部連携の再連携、Vercel の接続先の切り替え
+- 結果：`eval/reports/operations-readiness.md`
+
+## 負荷試験
+
+- `node scripts/loadtest-setup.mjs`（手元に10万人規模の組織を作る）→ 本番ビルドを起動 → `BASE=http://localhost:3090 node scripts/loadtest.mjs 1,5,10,20,30 60`
+- 結果：同時10人で95%が1.33秒（目標2秒以内を満たす）。試験で見つかった RLS・検索・上限確認の遅さを修正済み。詳細は `eval/reports/operations-readiness.md`
+
 ## 組織間の連携・活動者データ共有（機能フラグ `partner_sharing`）
 
 - 連携（申請・承認・拒否・解除）と、活動者ごとの共有許可は別管理。連携の承認だけでは何も見えない
@@ -179,8 +220,9 @@ node scripts/set-feature.mjs "<組織名またはID>" photo_tiling on
 
 - 組織間共有：実データでの有効化・本人同意の取得フロー（アプリ内）・共有データの保存期間は未実施／未確定
 - **Rekognition の実写真評価は未実施**（AWS 認証情報がないため）。少人数・混雑・暗所・重なりの実写真で、正解人数との誤差と修正時間を測ってから採用を決める。縮小率（現在は長辺2560px）もその結果で決める
-- 課金・契約（決済連携、プラン変更の申し込み、解約時の出力猶予・削除）は未実装。プランと利用枠は DB の `plans` で管理し、変更はサービスロールのみ
+- 決済（Stripe）は実装済みだが未接続。本物の Stripe での通し確認、上位プランの申し込み、停止から90日後のデータ削除の自動化は未実施
+- 規約類は文面のひな形。事業者情報の記入と専門家の確認が必要
 - 招待はリンクを画面に表示する方式で、メール送信はしていない
 - 外部フォーム連携は汎用 Webhook（JSON）のみ。対応サービスは実際の利用に合わせて追加する
-- 負荷試験（§6 の想定データ量）、バックアップの復元試験、監視（キュー滞留・解析失敗・費用）の設定は未実施
+- 負荷試験は手元（10万人）と本番（デモ規模）で実施。本番の DB を有料プランにしたら、大規模データでやり直す。費用（外部APIの利用額）の監視は未実施
 - 料金・利用上限・保存期間・関係人口の定義はすべて仮案（設定や `plans` で変更可能）
