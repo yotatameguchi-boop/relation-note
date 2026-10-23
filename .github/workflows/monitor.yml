@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: "通知の経路を試すため、異常として扱う"
+        type: boolean
+        default: false
 permissions:
   issues: write
 concurrency: monitor
@@ -28,7 +33,8 @@ jobs:
           status=$(jq -r '.status // "down"' body.json 2>/dev/null || echo down)
           problems=$(jq -r '(.problems // []) | join(", ")' body.json 2>/dev/null)
           echo "health=$code status=$status problems=$problems login=$page"
-          if [ "$code" != "200" ] || [ "$status" != "ok" ] || [ "${page%% *}" != "200" ]; then
+          if [ "${{ inputs.simulate_failure }}" = "true" ]; then problems="simulated（通知経路の試験）"; fi
+          if [ "$code" != "200" ] || [ "$status" != "ok" ] || [ "${page%% *}" != "200" ] || [ "${{ inputs.simulate_failure }}" = "true" ]; then
             echo "bad=1" >> "$GITHUB_OUTPUT"
           fi
           {
