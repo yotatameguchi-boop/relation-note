@@ -1,19 +1,25 @@
 import Link from "next/link";
-import { requireMembership, can, canManageSharing, getFeatures, hasPerm } from "@/lib/auth";
+import { requireUser, requireMembership, can, canManageSharing, getFeatures, hasPerm } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Nav } from "@/components/Nav";
 import { Logo } from "@/components/Logo";
 import { ROLE_LABEL } from "@/lib/roles";
 import { usageWarnings, type Usage } from "@/lib/usage";
+import { TermsNotice } from "@/components/TermsNotice";
+import { LegalFooter } from "@/components/LegalFooter";
+import { billingNotice, type OrgBilling } from "@/lib/billing";
 
 export default async function OrgLayout({ children, params }: { children: React.ReactNode; params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
   const m = await requireMembership(orgId);
   const supabase = await createClient();
-  const [{ data: usage }, { data: taskCounts }] = await Promise.all([
+  const user = await requireUser();
+  const [{ data: usage }, { data: taskCounts }, { data: billing }] = await Promise.all([
     supabase.rpc("org_usage", { org: orgId }),
     supabase.rpc("my_task_counts", { org: orgId }),
+    supabase.from("organizations").select("status, billing_suspended, subscription_status, trial_ends_at, current_period_end, cancel_at_period_end").eq("id", orgId).single(),
   ]);
+  const bill = billing ? billingNotice(billing as OrgBilling, m.role === "owner") : null;
   const due = (taskCounts as { overdue: number; today: number } | null);
   const dueCount = (due?.overdue ?? 0) + (due?.today ?? 0);
   const warnings = usage ? usageWarnings(usage as Usage) : [];
@@ -79,6 +85,7 @@ export default async function OrgLayout({ children, params }: { children: React.
                 { href: `${base}/jobs`, label: "処理状況" },
                 ...(admin ? [{ href: `${base}/members`, label: "スタッフと権限" }, { href: `${base}/audit`, label: "操作履歴" }] : []),
                 { href: `${base}/settings`, label: "組織設定・利用量" },
+                ...(m.role === "owner" ? [{ href: `${base}/billing`, label: "料金・契約" }] : []),
               ],
             },
           ]}
@@ -88,7 +95,14 @@ export default async function OrgLayout({ children, params }: { children: React.
         </form>
       </aside>
       <main className="main">
-        {m.status === "suspended" && (
+        <TermsNotice userId={user.id} />
+        {bill && (
+          <div className={`notice ${bill.tone}`}>
+            {bill.text}
+            {bill.link && <> <Link href={`${base}/billing`}>料金・契約へ</Link></>}
+          </div>
+        )}
+        {m.status === "suspended" && !bill?.suspended && (
           <div className="notice notice-warn">この組織は利用停止中です。データの閲覧と出力のみ行えます。</div>
         )}
         {warnings.map((w) => (
@@ -98,6 +112,7 @@ export default async function OrgLayout({ children, params }: { children: React.
           </div>
         ))}
         {children}
+        <LegalFooter />
       </main>
     </div>
   );

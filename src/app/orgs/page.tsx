@@ -5,6 +5,9 @@ import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { toMessage } from "@/lib/errors";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
+import { TermsNotice } from "@/components/TermsNotice";
+import { LegalFooter } from "@/components/LegalFooter";
+import { PRICING, yen } from "@/lib/legal";
 
 async function createOrg(fd: FormData) {
   "use server";
@@ -32,6 +35,7 @@ export default async function OrgsPage({ searchParams }: { searchParams: Promise
         <form action="/auth/signout" method="post"><button className="btn-secondary btn-small">ログアウト</button></form>
       </div>
       <p className="muted small">{user.email} でログイン中</p>
+      <TermsNotice userId={user.id} />
       {sp.error && <div className="notice notice-danger">{sp.error}</div>}
       <div className="card">
         {orgs.length === 0 && <p className="muted">所属している組織はまだありません。招待リンクを受け取るか、新しく組織を作成してください。</p>}
@@ -47,12 +51,13 @@ export default async function OrgsPage({ searchParams }: { searchParams: Promise
       </div>
       <div className="card">
         <h2 style={{ marginTop: 0 }}>新しい組織を作成</h2>
-        <p className="small muted">作成したあなたがオーナーになります。標準プラン（月額4,980円・税別の仮案）の利用枠が適用されます。</p>
+        <p className="small muted">作成したあなたがオーナーになります。{`最初の${PRICING.trialDays}日間は無料です。続けて使う場合は「料金・契約」から標準プラン（月払い ${yen(PRICING.monthly)}・税別）をお申し込みください。`}</p>
         <form action={createOrg} className="row">
           <input name="name" required maxLength={120} placeholder="組織名" style={{ flex: 1 }} />
           <button type="submit">作成</button>
         </form>
       </div>
+      <LegalFooter />
     </div>
   );
 }

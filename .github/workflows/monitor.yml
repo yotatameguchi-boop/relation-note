@@ -1,0 +1,60 @@
+# 本番の外形監視。30分ごとに /api/health を確認し、問題があれば Issue を立てる（GitHub からメール通知が届く）。
+# 回復したら Issue に記録して閉じる。
+#   必要な secrets：HEALTH_TOKEN（Vercel の環境変数 HEALTH_TOKEN と同じ値）
+#   非公開リポジトリでは Actions の無料枠（月2,000分）を使う。30分ごと × 約1分 ≒ 月1,440分
+name: monitor
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+permissions:
+  issues: write
+concurrency: monitor
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      URL: https://relationnote.vercel.app
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: check
+        id: check
+        run: |
+          set +e
+          code=$(curl -s -o body.json -w '%{http_code}' --max-time 30 -H "Authorization: Bearer ${{ secrets.HEALTH_TOKEN }}" "$URL/api/health")
+          page=$(curl -s -o /dev/null -w '%{http_code} %{time_total}' --max-time 30 "$URL/login")
+          status=$(jq -r '.status // "down"' body.json 2>/dev/null || echo down)
+          problems=$(jq -r '(.problems // []) | join(", ")' body.json 2>/dev/null)
+          echo "health=$code status=$status problems=$problems login=$page"
+          if [ "$code" != "200" ] || [ "$status" != "ok" ] || [ "${page%% *}" != "200" ]; then
+            echo "bad=1" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo "summary<<EOF"
+            echo "- /api/health: HTTP $code / $status"
+            echo "- 問題: ${problems:-なし}"
+            echo "- /login: HTTP ${page%% *}（${page##* }秒）"
+            echo "- 確認時刻: $(date -u +%FT%TZ)"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: open or update issue
+        if: steps.check.outputs.bad == '1'
+        run: |
+          gh label create monitor --color B60205 --description "外形監視" 2>/dev/null || true
+          n=$(gh issue list --label monitor --state open --json number -q '.[0].number')
+          if [ -z "$n" ]; then
+            gh issue create --label monitor --title "【監視】本番の異常を検知しました" --body "${{ steps.check.outputs.summary }}
+
+          対応手順は README の「監視」を参照。"
+          else
+            gh issue comment "$n" --body "${{ steps.check.outputs.summary }}"
+          fi
+          exit 1
+      - name: close recovered issue
+        if: steps.check.outputs.bad != '1'
+        run: |
+          n=$(gh issue list --label monitor --state open --json number -q '.[0].number' 2>/dev/null)
+          if [ -n "$n" ]; then gh issue close "$n" --comment "回復しました。
+          ${{ steps.check.outputs.summary }}"; fi

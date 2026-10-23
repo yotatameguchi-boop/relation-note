@@ -71,8 +71,8 @@ export default async function Settings({ params, searchParams }: { params: Promi
       <div className="card">
         <div className="spread"><h2 style={{ margin: 0 }}>{plan.name}</h2>
           <span className="small muted">
-            {plan.monthly_price_jpy ? `月払い ${plan.monthly_price_jpy.toLocaleString()}円／年払い ${plan.yearly_price_jpy?.toLocaleString()}円（税別・仮案）` : "個別契約"}
-            ・{org.billing_cycle === "yearly" ? "年払い" : "月払い"}
+            {plan.monthly_price_jpy ? `月払い ${plan.monthly_price_jpy.toLocaleString()}円／年払い ${plan.yearly_price_jpy?.toLocaleString()}円（税別）` : "個別契約"}
+            {owner && <>・<a href={`/orgs/${orgId}/billing`}>料金・契約</a></>}
           </span>
         </div>
         <div className="grid grid-2" style={{ marginTop: 12 }}>

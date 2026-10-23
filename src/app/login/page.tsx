@@ -1,4 +1,5 @@
 import { Logo } from "@/components/Logo";
+import { LegalFooter } from "@/components/LegalFooter";
 import { resendConfirmation, signIn, signUp } from "./actions";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; mode?: string; sent?: string; unconfirmed?: string; email?: string }> }) {
@@ -42,6 +43,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <input id="password" name="password" type="password" required minLength={8}
               autoComplete={signup ? "new-password" : "current-password"} />
           </div>
+          {signup && (
+            <label className="row small" style={{ gap: 8, margin: "4px 0 14px", alignItems: "flex-start" }}>
+              <input type="checkbox" name="agree" required style={{ width: "auto", marginTop: 4 }} />
+              <span><a href="/terms" target="_blank">利用規約</a>と<a href="/privacy" target="_blank">プライバシーポリシー</a>に同意します</span>
+            </label>
+          )}
           <button type="submit">{signup ? "作成してログイン" : "ログイン"}</button>
         </form>
         <p className="small" style={{ marginTop: 14 }}>
@@ -52,6 +59,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           )}
         </p>
       </div>
+      <LegalFooter />
     </div>
   );
 }

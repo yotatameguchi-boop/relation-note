@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { TERMS_VERSION } from "@/lib/legal";
 
 function safeNext(v: FormDataEntryValue | null) {
   const s = typeof v === "string" ? v : "";
@@ -24,12 +25,15 @@ export async function signIn(fd: FormData) {
 
 export async function signUp(fd: FormData) {
   const email = String(fd.get("email") ?? "");
+  if (fd.get("agree") !== "on") {
+    redirect(`/login?mode=signup&error=${encodeURIComponent("利用規約とプライバシーポリシーへの同意が必要です。")}`);
+  }
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email,
     password: String(fd.get("password") ?? ""),
     options: {
-      data: { display_name: String(fd.get("display_name") ?? "") },
+      data: { display_name: String(fd.get("display_name") ?? ""), terms_version: TERMS_VERSION },
       emailRedirectTo: callbackUrl(),
     },
   });

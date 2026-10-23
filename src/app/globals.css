@@ -211,3 +211,16 @@ th .sort-link.active span { opacity: 1; }
 .task-check { width: 22px; height: 22px; padding: 0; border-radius: 50%; background: var(--surface); color: var(--teal-strong); border: 2px solid var(--border); font-size: 13px; line-height: 1; }
 .task-check:hover { border-color: var(--teal); }
 .nav-count { display: inline-block; margin-left: 6px; min-width: 18px; padding: 0 6px; border-radius: 99px; background: var(--danger); color: #fff; font-size: 11px; text-align: center; }
+
+/* 規約・表記のページ */
+.legal-wrap { max-width: 820px; margin: 0 auto; padding: 24px 16px 40px; }
+.legal-head { padding: 8px 0 20px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+.legal-body { line-height: 1.85; }
+.legal-body h2 { font-size: 1.05rem; margin-top: 28px; }
+.legal-body ol, .legal-body ul { padding-left: 22px; }
+.legal-table { width: 100%; border-collapse: collapse; }
+.legal-table th, .legal-table td { border-bottom: 1px solid var(--border); padding: 10px 8px; vertical-align: top; text-align: left; }
+.legal-table th { width: 32%; white-space: normal; background: var(--surface-2, transparent); }
+@media (max-width: 600px) { .legal-table th, .legal-table td { display: block; width: auto; } .legal-table th { border-bottom: 0; padding-bottom: 0; } }
+.legal-footer { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center; padding: 24px 0 8px; }
+.legal-footer a { color: inherit; }

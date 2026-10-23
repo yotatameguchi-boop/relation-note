@@ -410,11 +410,17 @@ Deno.serve(async (req) => {
   if (!secret || req.headers.get("Authorization") !== `Bearer ${secret}`) {
     return new Response("unauthorized", { status: 401 });
   }
-  const run = runWorker(admin()).then((r) => (console.log("worker", JSON.stringify(r)), r));
+  const db = admin();
+  const run = runWorker(db).then(async (r) => {
+    console.log("worker", JSON.stringify(r));
+    // 監視用の稼働記録（/api/health が「ワーカーが止まっていないか」を見る）
+    const { error } = await db.rpc("worker_heartbeat", { p_processed: r.processed, p_failed: r.failed, p_ms: r.ms });
+    if (error) console.error("heartbeat failed", error.message);
+    return r;
+  });
   // Cron（pg_net）は応答を待たずに切断するので、処理は裏で続ける。?sync=1 なら結果を返す（確認用）
   if (new URL(req.url).searchParams.get("sync") === "1") return Response.json(await run);
-  // deno-lint-ignore no-explicit-any
-  const rt = (globalThis as any).EdgeRuntime;
+  const rt = (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime;
   if (rt?.waitUntil) rt.waitUntil(run);
   return Response.json({ accepted: true }, { status: 202 });
 });
