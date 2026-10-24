@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser, requireMembership, can, canManageSharing, getFeatures, hasPerm } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Nav } from "@/components/Nav";
+import { SidebarMenu } from "@/components/SidebarMenu";
 import { Logo } from "@/components/Logo";
 import { ROLE_LABEL } from "@/lib/roles";
 import { usageWarnings, type Usage } from "@/lib/usage";
@@ -38,7 +39,7 @@ export default async function OrgLayout({ children, params }: { children: React.
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand"><Link href="/orgs" className="logo" aria-label="RelationNote 組織の選択へ"><Logo size={30} wordSize={16} /></Link></div>
+        <SidebarMenu brand={<div className="brand"><Link href="/orgs" className="logo" aria-label="RelationNote 組織の選択へ"><Logo size={30} wordSize={16} /></Link></div>}>
         <div className="small" style={{ margin: "0 10px 8px" }}>
           <strong>{m.organizationName}</strong>
           <div className="muted org-switch">{ROLE_LABEL[m.role]}・<Link href="/orgs">組織を切り替え</Link></div>
@@ -93,6 +94,7 @@ export default async function OrgLayout({ children, params }: { children: React.
         <form action="/auth/signout" method="post" style={{ margin: "16px 10px" }}>
           <button className="btn-secondary btn-small">ログアウト</button>
         </form>
+        </SidebarMenu>
       </aside>
       <main className="main">
         <TermsNotice userId={user.id} />
