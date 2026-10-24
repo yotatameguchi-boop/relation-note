@@ -46,7 +46,7 @@ export default async function OrgLayout({ children, params }: { children: React.
         </div>
         <Nav
           sections={[
-            { items: [{ href: base, label: "ダッシュボード", exact: true }] },
+            { items: [{ href: base, label: "ダッシュボード", exact: true }, { href: `${base}/insights`, label: "グラフ分析" }] },
             {
               items: [{ href: `${base}/tasks`, label: "タスク", badge: dueCount > 0 ? `${dueCount}` : undefined, badgeLabel: `期限が今日までの自分のタスク ${dueCount}件` }],
             },

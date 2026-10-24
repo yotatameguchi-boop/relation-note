@@ -1,7 +1,60 @@
 import Link from "next/link";
-import { requireMembership } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+import { can, requireMembership, requireUser } from "@/lib/auth";
+import { METRICS, RANGES, isSpec, normalizeSpec, specToParams } from "@/lib/insights";
+import { loadFields, runInsight } from "@/lib/insights-server";
+import { InsightCard } from "@/components/InsightView";
 import { createClient } from "@/lib/supabase/server";
-import { fmtDate, fmtNum, todayJst } from "@/lib/format";
+import { fmtDate, fmtNum, nowMs, todayJst } from "@/lib/format";
+
+async function removeChart(fd: FormData) {
+  "use server";
+  const orgId = String(fd.get("orgId"));
+  const supabase = await createClient();
+  await supabase.from("saved_charts").delete().eq("organization_id", orgId).eq("id", String(fd.get("id")));
+  revalidatePath(`/orgs/${orgId}`);
+}
+
+/** ダッシュボードに追加したグラフ（グラフ分析の画面から追加する） */
+async function SavedCharts({ orgId, isAdmin, canEdit, userId }: { orgId: string; isAdmin: boolean; canEdit: boolean; userId: string }) {
+  const supabase = await createClient();
+  const { data: charts } = await supabase.from("saved_charts").select("id, title, spec, created_by")
+    .eq("organization_id", orgId).order("position").order("created_at").limit(12);
+  const base = `/orgs/${orgId}/insights`;
+  if (!charts?.length) {
+    return (
+      <div className="card row" style={{ justifyContent: "space-between" }}>
+        <span className="small">知りたいことを入力すると、人数や参加の推移をグラフにできます。よく見るグラフはここに並べられます。</span>
+        <Link className="btn btn-secondary btn-small" href={base}>グラフ分析を開く</Link>
+      </div>
+    );
+  }
+  const fields = await loadFields(supabase, orgId);
+  const now = nowMs();
+  const rendered = await Promise.all(charts.filter((c) => isSpec(c.spec)).map(async (c) => {
+    const spec = normalizeSpec(c.spec, now);
+    return { c, spec, ...(await runInsight(supabase, orgId, spec, fields, now)) };
+  }));
+  return (
+    <div className="saved-grid">
+      {rendered.map(({ c, spec, shaped, kind }) => (
+        <InsightCard key={c.id} compact title={c.title} sub={RANGES[spec.range]} data={shaped} kind={kind}
+          unit={METRICS[spec.metric].unit} spec={spec}
+          actions={
+            <span className="row">
+              <Link className="small" href={`${base}?${specToParams(spec)}`}>条件を変える</Link>
+              {isAdmin || (canEdit && c.created_by === userId) ? (
+                <form action={removeChart}>
+                  <input type="hidden" name="orgId" value={orgId} /><input type="hidden" name="id" value={c.id} />
+                  <button className="link-btn small" aria-label={`「${c.title}」をダッシュボードから外す`}>外す</button>
+                </form>
+              ) : null}
+            </span>
+          } />
+      ))}
+    </div>
+  );
+}
 
 type EventRow = {
   id: string; title: string; starts_at: string; attended_records: number; applied_records: number;
@@ -29,7 +82,7 @@ function Stat({ label, value, note }: { label: string; value: number; note?: str
 export default async function Dashboard({ params, searchParams }: { params: Promise<{ orgId: string }>; searchParams: Promise<{ from?: string; to?: string }> }) {
   const { orgId } = await params;
   const sp = await searchParams;
-  await requireMembership(orgId);
+  const membership = await requireMembership(orgId);
   // 既定の期間は日本時間で「12か月前の月初〜今日」
   const defTo = todayJst();
   const [y, mo] = defTo.split("-").map(Number);
@@ -75,6 +128,14 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
             写真の人数は同じ人が複数枚に写るため合算せず、イベント参加人数にも自動では反映しません。
             参加人数は原則として参加確認済みの記録（＋匿名参加者）を使い、スタッフが確定した人数があればそちらを優先します。
           </p>
+
+          <div className="spread" style={{ marginTop: 24 }}>
+            <h2 style={{ margin: 0 }}>グラフ</h2>
+            <Link className="small" href={`/orgs/${orgId}/insights`}>グラフ分析へ</Link>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <SavedCharts orgId={orgId} isAdmin={can(membership, "admin")} canEdit={can(membership, "editor")} userId={(await requireUser()).id} />
+          </div>
 
           <h2>イベント別</h2>
           <div className="table-wrap">
