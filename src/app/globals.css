@@ -285,8 +285,9 @@ th .sort-link.active span { opacity: 1; }
 .saved-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
 @media (prefers-color-scheme: dark) { .seg button { color: var(--text); } .seg button[aria-pressed="true"] { color: #fff; background: var(--brand-2); } }
 .viz-donut-total { fill: var(--viz-ink); font-size: 26px; font-weight: 700; }
-.viz-share { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 220px; display: grid; gap: 2px; font-size: 13px; }
-.viz-share li { display: grid; grid-template-columns: 12px 1fr auto 76px; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; }
+.viz-share { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 220px; max-width: 420px; width: 100%; display: grid; gap: 4px; font-size: 14px; }
+.viz-share li { display: grid; grid-template-columns: 12px 1fr auto 84px; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; border-bottom: 1px solid var(--viz-grid); }
+.viz-share li:last-child { border-bottom: 0; }
 .viz-share li[data-active] { background: var(--surface-2); }
 .viz-share-label { color: var(--viz-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .viz-share strong { font-variant-numeric: tabular-nums; }

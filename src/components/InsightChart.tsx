@@ -311,10 +311,11 @@ function Donut({ data, width, unit, setTip }: { data: Shaped; width: number; uni
     segs = [...segs.slice(0, 5), { label: `その他（${rest.length}区分）`, key: "__other__", value: rest.reduce((a, b) => a + b.value, 0) }];
   }
   const total = segs.reduce((a, b) => a + b.value, 0);
-  const size = Math.min(260, Math.max(180, width * 0.42));
+  // カードの幅いっぱいに大きく描く（横に一覧を並べる余裕がなければ、一覧は下へ）
+  const stacked = width < 640;
+  const size = Math.round(stacked ? Math.min(width, 440) : Math.min(480, Math.max(300, (width - 24) * 0.55)));
   const r = size / 2;
-  const inner = r * 0.62;
-  const stacked = width < 520;
+  const inner = r * 0.6;
   const cx = r;
   const cy = r;
   const starts = segs.map((_, i) => segs.slice(0, i).reduce((a, b) => a + b.value, 0));
@@ -339,7 +340,7 @@ function Donut({ data, width, unit, setTip }: { data: Shaped; width: number; uni
   const clear = () => { setHover(null); setTip(null); };
 
   return (
-    <div style={{ display: "flex", flexDirection: stacked ? "column" : "row", alignItems: stacked ? "flex-start" : "center", gap: 24 }}>
+    <div style={{ display: "flex", flexDirection: stacked ? "column" : "row", alignItems: "center", justifyContent: "center", gap: stacked ? 16 : 40, padding: "8px 0" }}>
       <svg width={size} height={size} role="img" className="viz-svg" aria-label={`円グラフ。合計 ${fmt(total)}${unit}`}>
         {arcs.map((a) => (
           <path key={a.key} d={a.path} fill={color(a.i, a.key)} stroke="var(--viz-surface)" strokeWidth={2} strokeLinejoin="round"
@@ -348,8 +349,8 @@ function Donut({ data, width, unit, setTip }: { data: Shaped; width: number; uni
             <title>{`${a.label} ${fmt(a.value)}${unit}（${pct(a.value).toFixed(1)}%）`}</title>
           </path>
         ))}
-        <text x={cx} y={cy - 6} textAnchor="middle" className="viz-donut-total">{fmt(total)}</text>
-        <text x={cx} y={cy + 16} textAnchor="middle" className="viz-tick">合計（{unit}）</text>
+        <text x={cx} y={cy - size * 0.02} textAnchor="middle" className="viz-donut-total" style={{ fontSize: Math.round(size * 0.11) }}>{fmt(total)}</text>
+        <text x={cx} y={cy + size * 0.08} textAnchor="middle" className="viz-tick" style={{ fontSize: Math.max(11, Math.round(size * 0.038)) }}>合計（{unit}）</text>
       </svg>
       <ul className="viz-share" aria-label="区分ごとの値と割合">
         {arcs.map((a) => (
