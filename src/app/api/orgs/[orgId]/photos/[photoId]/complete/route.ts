@@ -11,9 +11,9 @@ export const runtime = "nodejs";
 export async function POST(_req: Request, { params }: { params: Promise<{ orgId: string; photoId: string }> }) {
   const { orgId, photoId } = await params;
   const supabase = await createClient();
-  const { data: u } = await supabase.auth.getUser();
-  const { data: mem } = await supabase.from("memberships").select("role").eq("organization_id", orgId).eq("user_id", u.user?.id ?? "").maybeSingle();
-  if (!mem || !["owner", "admin", "editor"].includes(mem.role)) return NextResponse.json({ error: "この操作を行う権限がありません。" }, { status: 403 });
+  // 権限は共通の判定で確認する（停止中の組織・二段階認証が必須の組織の条件も含む）
+  const { data: isEditor } = await supabase.rpc("has_role", { org: orgId, min_role: "editor" });
+  if (!isEditor) return NextResponse.json({ error: "この操作を行う権限がありません。" }, { status: 403 });
   const { data: photo } = await supabase.from("photos").select("id, storage_path, status").eq("organization_id", orgId).eq("id", photoId).maybeSingle();
   if (!photo) return NextResponse.json({ error: "対象が見つかりません。" }, { status: 404 });
   if (!photo.storage_path.startsWith(`${orgId}/`)) return NextResponse.json({ error: "対象が見つかりません。" }, { status: 404 });

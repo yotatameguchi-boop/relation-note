@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { InsightChart } from "@/components/InsightChart";
+import { csvCell } from "@shared/csv";
 import { DIMS, METRICS, RANGES, dimAllowed, pieAllowed, specToParams, type DimKey, type FieldDef, type MetricKey, type RangePreset, type Shaped, type Spec } from "@/lib/insights";
 
 const fmt = (n: number) => n.toLocaleString("ja-JP", { maximumFractionDigits: 1 });
@@ -18,7 +19,7 @@ export function InsightCard({ title, sub, data, kind, unit, spec, base, actions,
   const csv = () => {
     const head = [DIMS[spec.dim].label.replace(/(別|ごと)$/, "") || "区分", ...data.series.map((s) => s.label)];
     const lines = [head, ...data.labels.map((l, i) => [l, ...data.series.map((s) => String(s.values[i]))])]
-      .map((r) => r.map((c) => (/[",\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(","));
+      .map((r) => r.map(csvCell).join(","));
     const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv" });
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${title}.csv` });
     a.click();
