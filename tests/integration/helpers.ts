@@ -21,7 +21,7 @@ export async function newUser(label: string) {
   const client = createClient(URL, ANON, { auth: { persistSession: false } });
   const { error: e2 } = await client.auth.signInWithPassword({ email, password });
   if (e2) throw e2;
-  return { id: data.user.id, email, client };
+  return { id: data.user.id, email, password, client };
 }
 
 export type TestUser = Awaited<ReturnType<typeof newUser>>;

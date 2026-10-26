@@ -18,11 +18,22 @@ export async function proxy(request: NextRequest) {
   });
   const { data } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  if (!data.user && path.startsWith("/orgs")) {
+  if (!data.user && (path.startsWith("/orgs") || path.startsWith("/account"))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", path);
     return NextResponse.redirect(url);
+  }
+  // 二段階認証を設定している人は、コードを入力するまで画面に入れない（API の権限判定でも同じ条件をかけている）
+  if (data.user && (path.startsWith("/orgs") || path.startsWith("/account") || path.startsWith("/invite"))) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login/mfa";
+      url.search = "";
+      url.searchParams.set("next", path + request.nextUrl.search);
+      return NextResponse.redirect(url);
+    }
   }
   return response;
 }

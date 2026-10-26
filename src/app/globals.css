@@ -292,3 +292,11 @@ th .sort-link.active span { opacity: 1; }
 .viz-share-label { color: var(--viz-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .viz-share strong { font-variant-numeric: tabular-nums; }
 .viz-share-num { color: var(--viz-muted); text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }
+
+/* 二段階認証の設定 */
+.plain-list { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 6px; }
+.plain-list li { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); }
+.mfa-enroll { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.mfa-qr { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 10px 0 14px; }
+.mfa-qr img { background: #fff; padding: 8px; border-radius: 8px; }
+.mfa-secret { display: inline-block; margin-top: 4px; font-size: 13px; word-break: break-all; user-select: all; }

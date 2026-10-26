@@ -38,7 +38,13 @@ export const getMembership = cache(async (orgId: string): Promise<Membership | n
     .eq("organization_id", orgId)
     .eq("user_id", user.id)
     .maybeSingle();
-  if (!data) return null;
+  if (!data) {
+    // 二段階認証が必須の組織は、設定・入力が済むまで見えない。所属しているなら案内の画面へ送る
+    const { data: gate } = await supabase.rpc("mfa_gate", { org: orgId });
+    if (gate === "verify") redirect(`/login/mfa?next=${encodeURIComponent(`/orgs/${orgId}`)}`);
+    if (gate === "enroll") redirect(`/account?mfa=required&next=${encodeURIComponent(`/orgs/${orgId}`)}#mfa`);
+    return null;
+  }
   const org = data.organizations as unknown as { id: string; name: string; status: Membership["status"] };
   if (org.status === "cancelled") return null;
   return {

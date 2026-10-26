@@ -91,7 +91,8 @@ export default async function OrgLayout({ children, params }: { children: React.
             },
           ]}
         />
-        <form action="/auth/signout" method="post" style={{ margin: "16px 10px" }}>
+        <div className="small" style={{ margin: "14px 10px 0" }}><Link href="/account">アカウント設定（パスワード・二段階認証）</Link></div>
+        <form action="/auth/signout" method="post" style={{ margin: "10px 10px 16px" }}>
           <button className="btn-secondary btn-small">ログアウト</button>
         </form>
         </SidebarMenu>

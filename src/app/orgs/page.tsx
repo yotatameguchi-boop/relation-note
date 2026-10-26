@@ -25,6 +25,7 @@ export default async function OrgsPage({ searchParams }: { searchParams: Promise
     .from("memberships")
     .select("role, organizations!inner(id, name, status)")
     .eq("user_id", user.id);
+  const { data: blocked } = await supabase.rpc("mfa_blocked_orgs") as { data: { id: string; name: string }[] | null };
   const orgs = (data ?? []).map((m) => ({ role: m.role as Role, ...(m.organizations as unknown as { id: string; name: string; status: string }) }));
 
   return (
@@ -34,7 +35,12 @@ export default async function OrgsPage({ searchParams }: { searchParams: Promise
         <h1>組織を選ぶ</h1>
         <form action="/auth/signout" method="post"><button className="btn-secondary btn-small">ログアウト</button></form>
       </div>
-      <p className="muted small">{user.email} でログイン中</p>
+      <p className="muted small">{user.email} でログイン中・<Link href="/account">アカウント設定（パスワード・二段階認証）</Link></p>
+      {!!blocked?.length && (
+        <div className="notice notice-warn">
+          {blocked.map((b) => b.name).join("、")} では二段階認証が必須です。<Link href={`/account?mfa=required&next=${encodeURIComponent(`/orgs/${blocked[0].id}`)}#mfa`}>二段階認証を設定する</Link>と表示されます。
+        </div>
+      )}
       <TermsNotice userId={user.id} />
       {sp.error && <div className="notice notice-danger">{sp.error}</div>}
       <div className="card">

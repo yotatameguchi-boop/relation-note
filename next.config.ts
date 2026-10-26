@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
       },
       {
         // 認証済みの画面・API（共有画面を含む）は共有キャッシュに載せない
-        source: "/(orgs|api|invite)/:path*",
+        source: "/(orgs|api|invite|account|login)/:path*",
         headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
       },
     ];

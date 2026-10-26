@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getFeatures, requireMembership } from "@/lib/auth";
@@ -22,6 +23,17 @@ async function save(fd: FormData) {
   if (error || !count) redirect(`/orgs/${orgId}/settings?error=${encodeURIComponent(toMessage(error, "保存できませんでした（オーナーのみ変更できます）。"))}`);
   revalidatePath(`/orgs/${orgId}`, "layout");
   redirect(`/orgs/${orgId}/settings?ok=${encodeURIComponent("保存しました。")}`);
+}
+
+async function setRequireMfa(fd: FormData) {
+  "use server";
+  const orgId = String(fd.get("orgId"));
+  const on = fd.get("on") === "1";
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_org_require_mfa", { org: orgId, required: on });
+  if (error) redirect(`/orgs/${orgId}/settings?error=${encodeURIComponent(error.message === "mfa_required_self" ? "先にご自身の二段階認証を設定し、コードを入力してログインしてから必須にしてください。" : toMessage(error, "変更できませんでした（オーナーのみ）。"))}#security`);
+  revalidatePath(`/orgs/${orgId}`, "layout");
+  redirect(`/orgs/${orgId}/settings?ok=${encodeURIComponent(on ? "二段階認証を必須にしました。未設定のスタッフは、次に画面を開いたときに設定を求められます。" : "二段階認証の必須を解除しました。")}#security`);
 }
 
 async function destroy(fd: FormData) {
@@ -53,10 +65,17 @@ export default async function Settings({ params, searchParams }: { params: Promi
   const sp = await searchParams;
   const m = await requireMembership(orgId);
   const supabase = await createClient();
-  const [{ data: org }, { data: usage }] = await Promise.all([
+  const [{ data: org }, { data: usage }, { data: aal }] = await Promise.all([
     supabase.from("organizations").select("*, plans(*)").eq("id", orgId).single(),
     supabase.rpc("org_usage", { org: orgId }),
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
   ]);
+  const isAdmin = m.role === "owner" || m.role === "admin";
+  const { data: mfaStatus } = isAdmin ? await supabase.rpc("member_mfa_status", { org: orgId }) : { data: null };
+  const statusRows = (mfaStatus ?? []) as { user_id: string; has_mfa: boolean }[];
+  const { data: staff } = statusRows.length
+    ? await supabase.from("users").select("id, display_name, email").in("id", statusRows.map((r) => r.user_id))
+    : { data: [] as { id: string; display_name: string; email: string }[] };
   const u = usage as Usage;
   const features = await getFeatures(orgId);
   const { data: apiCalls } = await supabase.from("analysis_usage_records").select("provider, provider_calls, billable_units, created_at")
@@ -120,6 +139,41 @@ export default async function Settings({ params, searchParams }: { params: Promi
           <div style={{ marginTop: 12 }}><button>保存</button></div>
         </fieldset>
       </form>
+
+      <section className="card" id="security">
+        <h2 style={{ marginTop: 0 }}>セキュリティ</h2>
+        <div className="spread">
+          <div>
+            <strong>二段階認証を必須にする</strong>
+            <div className="small muted">オン にすると、この組織のスタッフは二段階認証（認証アプリのコード）を済ませたログインでしか、この組織のデータを見られなくなります。画面だけでなくデータベースの権限判定でも強制します。</div>
+          </div>
+          {org.require_mfa ? <span className="badge badge-ok">必須</span> : <span className="badge">任意</span>}
+        </div>
+        {owner && (
+          <form action={setRequireMfa} className="row" style={{ marginTop: 10 }}>
+            <input type="hidden" name="orgId" value={orgId} />
+            <input type="hidden" name="on" value={org.require_mfa ? "0" : "1"} />
+            <button className={org.require_mfa ? "btn-secondary" : ""} disabled={!org.require_mfa && aal?.currentLevel !== "aal2"}>
+              {org.require_mfa ? "必須を解除する" : "必須にする"}
+            </button>
+            {!org.require_mfa && aal?.currentLevel !== "aal2" && (
+              <span className="small muted">必須にするには、先に<Link href="/account#mfa">ご自身の二段階認証を設定</Link>し、コードを入力してログインしてください。</span>
+            )}
+          </form>
+        )}
+        {isAdmin && statusRows.length > 0 && (
+          <details style={{ marginTop: 12 }}>
+            <summary className="small">スタッフの設定状況（未設定 {statusRows.filter((r) => !r.has_mfa).length}人 / {statusRows.length}人）</summary>
+            <table className="small" style={{ marginTop: 8 }}><tbody>
+              {statusRows.map((r) => {
+                const u = (staff ?? []).find((x) => x.id === r.user_id);
+                return <tr key={r.user_id}><td>{u?.display_name ?? "—"}</td><td className="muted">{u?.email}</td><td>{r.has_mfa ? <span className="badge badge-ok">設定済み</span> : <span className="badge badge-warn">未設定</span>}</td></tr>;
+              })}
+            </tbody></table>
+          </details>
+        )}
+        <p className="small muted" style={{ marginBottom: 0 }}>パスワードは10文字以上・英字と数字の両方を含むものだけを受け付けます。ログインの試行が続くと一時的に受け付けを止めます。</p>
+      </section>
 
       {owner && (
         <form action={destroy} className="card" style={{ borderColor: "var(--danger)" }}>

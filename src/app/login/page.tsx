@@ -1,5 +1,6 @@
 import { Logo } from "@/components/Logo";
 import { LegalFooter } from "@/components/LegalFooter";
+import { PASSWORD_HINT, PASSWORD_MIN } from "@/lib/password";
 import { resendConfirmation, signIn, signUp } from "./actions";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; mode?: string; sent?: string; unconfirmed?: string; email?: string }> }) {
@@ -40,8 +41,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </div>
           <div className="field">
             <label htmlFor="password">パスワード</label>
-            <input id="password" name="password" type="password" required minLength={8}
-              autoComplete={signup ? "new-password" : "current-password"} />
+            <input id="password" name="password" type="password" required minLength={signup ? PASSWORD_MIN : 1} maxLength={72}
+              autoComplete={signup ? "new-password" : "current-password"} aria-describedby={signup ? "pw-hint" : undefined} />
+            {signup && <div id="pw-hint" className="small muted" style={{ marginTop: 4 }}>{PASSWORD_HINT}</div>}
           </div>
           {signup && (
             <label className="row small" style={{ gap: 8, margin: "4px 0 14px", alignItems: "flex-start" }}>
